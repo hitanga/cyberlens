@@ -136,7 +136,7 @@ export default function HeroCarousel({ slides, onReadMore }: HeroCarouselProps) 
               >
                 <button 
                   onClick={() => slide.postId && onReadMore(slide.postId)}
-                  className="btn-cyan flex items-center gap-4 transition-all transform hover:translate-x-2 group h-14 px-10"
+                  className="btn-cyan flex items-center gap-4 transition-all transform hover:translate-x-2 group h-[56px] px-10"
                 >
                   <span className="text-sm font-black tracking-widest">ESTABLISH_UPLINK</span>
                   <ArrowRight size={20} className="group-hover:translate-x-1 transition-transform" />

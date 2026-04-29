@@ -223,6 +223,7 @@ export default function AdminDashboard({ onBack }: AdminDashboardProps) {
                     className="w-full bg-dark-surface border border-white/5 rounded px-4 py-3 text-sm focus:outline-none focus:border-cyan-vibrant/50 text-white transition-colors appearance-none"
                   >
                     <option value="QUANTUM INTELLIGENCE">QUANTUM INTELLIGENCE</option>
+                    <option value="REACT JS">REACT JS</option>
                     <option value="HARDWARE">HARDWARE</option>
                     <option value="CYBERSECURITY">CYBERSECURITY</option>
                     <option value="NEURAL LINKS">NEURAL LINKS</option>
