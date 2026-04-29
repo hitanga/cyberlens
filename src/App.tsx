@@ -14,7 +14,7 @@ export default function App() {
   const [searchFocused, setSearchFocused] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedPostId, setSelectedPostId] = useState<string | null>(null);
-  const [currentView, setCurrentView] = useState<"HOME" | "PRIVACY" | "TERMS" | "CONTACT" | "RSS" | "ADMIN">("HOME");
+  const [currentView, setCurrentView] = useState<"HOME" | "PRIVACY" | "TERMS" | "CONTACT" | "RSS" | "ADMIN" | "ABOUT" | "BLOGS">("HOME");
   const [layoutMode, setLayoutMode] = useState<"grid" | "list">("list");
   const [user, setUser] = useState<FirebaseUser | null>(null);
   const [posts, setPosts] = useState<BlogPost[]>(STATIC_POSTS);
@@ -206,7 +206,7 @@ export default function App() {
     }
   };
 
-  const navigateTo = (view: "HOME" | "PRIVACY" | "TERMS" | "CONTACT" | "RSS" | "ADMIN") => {
+  const navigateTo = (view: "HOME" | "PRIVACY" | "TERMS" | "CONTACT" | "RSS" | "ADMIN" | "ABOUT" | "BLOGS") => {
     setCurrentView(view);
     setSelectedPostId(null);
   };
@@ -223,6 +223,21 @@ export default function App() {
             >
               <span className="text-cyan-vibrant group-hover:text-white transition-colors uppercase">CYBER_LENS</span>
             </h1>
+
+            <nav className="hidden md:flex items-center gap-8 ml-4">
+              <button 
+                onClick={() => navigateTo('ABOUT')}
+                className={`text-[10px] font-bold tracking-[0.2em] uppercase transition-all ${currentView === 'ABOUT' ? 'text-cyan-vibrant' : 'text-slate-500 hover:text-white'}`}
+              >
+                ABOUT
+              </button>
+              <button 
+                onClick={() => navigateTo('BLOGS')}
+                className={`text-[10px] font-bold tracking-[0.2em] uppercase transition-all ${currentView === 'BLOGS' ? 'text-cyan-vibrant' : 'text-slate-500 hover:text-white'}`}
+              >
+                BLOGS
+              </button>
+            </nav>
           </div>
 
           <div className="flex items-center gap-6 flex-1 justify-end max-w-2xl">
@@ -410,6 +425,73 @@ export default function App() {
                 )}
               </motion.div>
             )
+          ) : currentView === "ABOUT" ? (
+            <InfoPage 
+              key="about"
+              title="About Cyber_Lens" 
+              subtitle="The architectural philosophy behind our intelligence transmissions."
+              content={`
+                <div class="space-y-8">
+                  <p>In an era of fragmenting realities and algorithmic curation, <strong>CYBER_LENS</strong> serves as a stabilized viewing platform for the shifting digital landscape. We focus on the intersection of quantum computing, high-fidelity hardware, and the psychological impact of neural integration.</p>
+                  
+                  <div class="grid grid-cols-1 md:grid-cols-2 gap-12 mt-12">
+                     <div class="p-8 bg-dark-surface border border-white/5 rounded-sm">
+                        <h4 class="text-white font-black italic mb-4 tracking-tight">OUR_MISSION</h4>
+                        <p class="text-sm">To provide unfiltered analytical transmissions using high-security perimeter protocols. Every packet we send is verified against the digital source.</p>
+                     </div>
+                     <div class="p-8 bg-dark-surface border border-white/5 rounded-sm">
+                        <h4 class="text-white font-black italic mb-4 tracking-tight">THE_ARCHIVE</h4>
+                        <p class="text-sm">We maintain a permanent record of the evolution of synthetic thought, ensuring that the legacy of the architects is never overwritten.</p>
+                     </div>
+                  </div>
+
+                  <p class="mt-12 text-slate-500 italic">"The lens does not just observe; it focuses. The focus defines the reality."</p>
+                </div>
+              `}
+              onBack={() => navigateTo('HOME')}
+            />
+          ) : currentView === "BLOGS" ? (
+            <motion.div
+              key="blogs-list"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="max-w-7xl mx-auto px-6 py-20"
+            >
+              <div className="flex flex-col md:flex-row md:items-end justify-between gap-8 mb-16 px-4">
+                <div>
+                  <span className="text-cyan-vibrant font-black text-[10px] tracking-[0.4em] uppercase mb-4 block">Archive Directory</span>
+                  <h3 className="text-4xl font-black tracking-tighter text-white uppercase italic">ALL_TRANSMISSIONS</h3>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button 
+                    onClick={() => setLayoutMode("grid")}
+                    className={`p-3 bg-dark-surface border border-white/5 rounded-xs transition-colors ${layoutMode === "grid" ? "text-cyan-vibrant border-cyan-vibrant/30" : "text-slate-600 hover:text-white"}`}
+                  >
+                    <LayoutGrid size={20} />
+                  </button>
+                  <button 
+                    onClick={() => setLayoutMode("list")}
+                    className={`p-3 bg-dark-surface border border-white/5 rounded-xs transition-colors ${layoutMode === "list" ? "text-cyan-vibrant border-cyan-vibrant/30" : "text-slate-600 hover:text-white"}`}
+                  >
+                    <List size={20} />
+                  </button>
+                </div>
+              </div>
+
+              <div className={layoutMode === "grid" ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8" : "grid grid-cols-1 gap-10"}>
+                {filteredPosts.map((post, index) => (
+                  <PostCard 
+                    key={post.id} 
+                    post={post} 
+                    delay={index * 0.05} 
+                    layoutMode={layoutMode}
+                    isLiked={likedPostIds.includes(post.id)}
+                    onClick={() => setSelectedPostId(post.id)} 
+                  />
+                ))}
+              </div>
+            </motion.div>
           ) : currentView === "PRIVACY" ? (
             <InfoPage 
               key="privacy"
