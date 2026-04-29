@@ -1,12 +1,12 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { ArrowLeft, Save, Image as ImageIcon, Type, Code, Eye, Terminal, Layers, Plus, Trash2, ArrowUp, ArrowDown } from 'lucide-react';
+import { ArrowLeft, Save, Image as ImageIcon, Type, Code, Eye, Terminal, Layers, Plus, Trash2, ArrowUp, ArrowDown, Edit3, X, List } from 'lucide-react';
 import ReactQuill from 'react-quill-new';
 import 'react-quill-new/dist/quill.snow.css';
 import { db, auth } from '../lib/firebase';
-import { collection, addDoc, serverTimestamp, query, orderBy, onSnapshot, deleteDoc, doc, updateDoc } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, query, orderBy, onSnapshot, deleteDoc, doc, updateDoc, getDoc } from 'firebase/firestore';
 import DOMPurify from 'dompurify';
-import { CarouselSlide } from '../constants';
+import { CarouselSlide, BlogPost } from '../constants';
 
 interface AdminDashboardProps {
   onBack: () => void;
@@ -18,6 +18,8 @@ export default function AdminDashboard({ onBack }: AdminDashboardProps) {
   const [activeTab, setActiveTab] = useState<AdminTab>('POSTS');
   
   // Blog Post State
+  const [posts, setPosts] = useState<BlogPost[]>([]);
+  const [editingPostId, setEditingPostId] = useState<string | null>(null);
   const [title, setTitle] = useState('');
   const [subtitle, setSubtitle] = useState('');
   const [category, setCategory] = useState('QUANTUM INTELLIGENCE');
@@ -36,13 +38,20 @@ export default function AdminDashboard({ onBack }: AdminDashboardProps) {
   const [slidePostId, setSlidePostId] = useState('');
   
   const quillRef = useRef<ReactQuill>(null);
+  const formRef = useRef<HTMLDivElement>(null);
 
-  // Fetch Slides
+  // Fetch Slides & Posts
   useEffect(() => {
     if (activeTab === 'CAROUSEL') {
       const q = query(collection(db, 'carousel_slides'), orderBy('order', 'asc'));
       const unsubscribe = onSnapshot(q, (snapshot) => {
         setSlides(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as CarouselSlide[]);
+      });
+      return () => unsubscribe();
+    } else {
+      const q = query(collection(db, 'posts'), orderBy('createdAt', 'desc'));
+      const unsubscribe = onSnapshot(q, (snapshot) => {
+        setPosts(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as BlogPost[]);
       });
       return () => unsubscribe();
     }
@@ -66,24 +75,57 @@ export default function AdminDashboard({ onBack }: AdminDashboardProps) {
         image,
         date: new Date().toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' }).toUpperCase(),
         readTime: `${Math.ceil(content.split(' ').length / 200)} MIN READ`,
-        likes: 0,
-        createdAt: serverTimestamp(),
-        authorEmail: auth.currentUser.email
+        updatedAt: serverTimestamp(),
       };
 
-      await addDoc(collection(db, 'posts'), postData);
+      if (editingPostId) {
+        await updateDoc(doc(db, 'posts', editingPostId), postData);
+        setStatus({ type: 'success', message: 'TRANSMISSION UPDATED' });
+      } else {
+        await addDoc(collection(db, 'posts'), {
+          ...postData,
+          likes: 0,
+          createdAt: serverTimestamp(),
+          authorEmail: auth.currentUser.email
+        });
+        setStatus({ type: 'success', message: 'TRANSMISSION LOGGED' });
+      }
       
-      setStatus({ type: 'success', message: 'TRANSMISSION LOGGED SUCCESSFULLY' });
-      // Reset form
-      setTitle('');
-      setSubtitle('');
-      setImage('');
-      setContent('');
+      resetPostForm();
     } catch (error) {
-      console.error("Error adding document: ", error);
-      setStatus({ type: 'error', message: 'FAILED TO LOG TRANSMISSION' });
+      console.error("Error saving transmission: ", error);
+      setStatus({ type: 'error', message: 'FAILED TO SYNC TRANSMISSION' });
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const resetPostForm = () => {
+    setTitle('');
+    setSubtitle('');
+    setImage('');
+    setContent('');
+    setEditingPostId(null);
+    setCategory('QUANTUM INTELLIGENCE');
+  };
+
+  const handleEditPost = (post: BlogPost) => {
+    setEditingPostId(post.id);
+    setTitle(post.title);
+    setSubtitle(post.subtitle);
+    setCategory(post.category);
+    setImage(post.image);
+    setContent(post.content);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleDeletePost = async (id: string) => {
+    if (!confirm("Confirm permanent destruction of this transmission log?")) return;
+    try {
+      await deleteDoc(doc(db, 'posts', id));
+      if (editingPostId === id) resetPostForm();
+    } catch (error) {
+      console.error(error);
     }
   };
 
@@ -187,131 +229,201 @@ export default function AdminDashboard({ onBack }: AdminDashboardProps) {
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: 20 }}
+            className="space-y-16"
           >
-            <form onSubmit={handleSubmit} className="space-y-8">
-              {status.type && (
-                <motion.div 
-                  initial={{ opacity: 0, y: -10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className={`p-4 rounded border text-xs font-bold tracking-widest uppercase ${
-                    status.type === 'success' ? 'bg-cyan-500/10 border-cyan-500/50 text-cyan-500' : 'bg-red-500/10 border-red-500/50 text-red-500'
-                  }`}
-                >
-                  {status.message}
-                </motion.div>
+            <div ref={formRef} className="space-y-8 bg-dark-surface p-8 rounded-sm border border-white/5 relative overflow-hidden">
+              {/* Active Edit Indicator */}
+              {editingPostId && (
+                <div className="absolute top-0 left-0 w-1 h-full bg-cyan-vibrant shadow-[0_0_10px_rgba(0,229,255,0.5)]" />
               )}
+              
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="text-xl font-bold text-white uppercase italic tracking-tight">
+                  {editingPostId ? 'MODIFY_TRANSMISSION' : 'FORGE_NEW_LOG'}
+                </h3>
+                {editingPostId && (
+                  <button 
+                    onClick={resetPostForm}
+                    className="flex items-center gap-2 text-[10px] font-bold text-slate-500 hover:text-white tracking-widest uppercase transition-all"
+                  >
+                    <X size={14} /> CANCEL_EDIT
+                  </button>
+                )}
+              </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              <form onSubmit={handleSubmit} className="space-y-8">
+                {status.type && (
+                  <motion.div 
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className={`p-4 rounded border text-xs font-bold tracking-widest uppercase ${
+                      status.type === 'success' ? 'bg-cyan-500/10 border-cyan-500/50 text-cyan-500' : 'bg-red-500/10 border-red-500/50 text-red-500'
+                    }`}
+                  >
+                    {status.message}
+                  </motion.div>
+                )}
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-bold text-slate-500 tracking-widest uppercase flex items-center gap-2">
+                      <Type size={12} /> Transmission Title
+                    </label>
+                    <input 
+                      required
+                      value={title}
+                      onChange={(e) => setTitle(e.target.value)}
+                      placeholder="Enter headline..."
+                      className="w-full bg-darker-surface border border-white/5 rounded px-4 py-3 text-sm focus:outline-none focus:border-cyan-vibrant/50 text-white placeholder:text-slate-700 transition-colors"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-bold text-slate-500 tracking-widest uppercase">Classification</label>
+                    <select 
+                      value={category}
+                      onChange={(e) => setCategory(e.target.value)}
+                      className="w-full bg-darker-surface border border-white/5 rounded px-4 py-3 text-sm focus:outline-none focus:border-cyan-vibrant/50 text-white transition-colors appearance-none"
+                    >
+                      <option value="QUANTUM INTELLIGENCE">QUANTUM INTELLIGENCE</option>
+                      <option value="REACT JS">REACT JS</option>
+                      <option value="HARDWARE">HARDWARE</option>
+                      <option value="CYBERSECURITY">CYBERSECURITY</option>
+                      <option value="NEURAL LINKS">NEURAL LINKS</option>
+                    </select>
+                  </div>
+                </div>
+
                 <div className="space-y-2">
-                  <label className="text-[10px] font-bold text-slate-500 tracking-widest uppercase flex items-center gap-2">
-                    <Type size={12} /> Transmission Title
-                  </label>
+                  <label className="text-[10px] font-bold text-slate-500 tracking-widest uppercase">Secondary Header (Subtitle)</label>
                   <input 
-                    required
-                    value={title}
-                    onChange={(e) => setTitle(e.target.value)}
-                    placeholder="Enter headline..."
-                    className="w-full bg-dark-surface border border-white/5 rounded px-4 py-3 text-sm focus:outline-none focus:border-cyan-vibrant/50 text-white placeholder:text-slate-700 transition-colors"
+                    value={subtitle}
+                    onChange={(e) => setSubtitle(e.target.value)}
+                    placeholder="Clarifying metadata..."
+                    className="w-full bg-darker-surface border border-white/5 rounded px-4 py-3 text-sm focus:outline-none focus:border-cyan-vibrant/50 text-white placeholder:text-slate-700 transition-colors"
                   />
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-[10px] font-bold text-slate-500 tracking-widest uppercase">Classification</label>
-                  <select 
-                    value={category}
-                    onChange={(e) => setCategory(e.target.value)}
-                    className="w-full bg-dark-surface border border-white/5 rounded px-4 py-3 text-sm focus:outline-none focus:border-cyan-vibrant/50 text-white transition-colors appearance-none"
-                  >
-                    <option value="QUANTUM INTELLIGENCE">QUANTUM INTELLIGENCE</option>
-                    <option value="REACT JS">REACT JS</option>
-                    <option value="HARDWARE">HARDWARE</option>
-                    <option value="CYBERSECURITY">CYBERSECURITY</option>
-                    <option value="NEURAL LINKS">NEURAL LINKS</option>
-                  </select>
+                  <label className="text-[10px] font-bold text-slate-500 tracking-widest uppercase flex items-center gap-2">
+                    <ImageIcon size={12} /> Image Uplink URL
+                  </label>
+                  <input 
+                    required
+                    value={image}
+                    onChange={(e) => setImage(e.target.value)}
+                    placeholder="https://images.unsplash.com/..."
+                    className="w-full bg-darker-surface border border-white/5 rounded px-4 py-3 text-sm focus:outline-none focus:border-cyan-vibrant/50 text-white placeholder:text-slate-700 transition-colors"
+                  />
                 </div>
-              </div>
 
-              <div className="space-y-2">
-                <label className="text-[10px] font-bold text-slate-500 tracking-widest uppercase">Secondary Header (Subtitle)</label>
-                <input 
-                  value={subtitle}
-                  onChange={(e) => setSubtitle(e.target.value)}
-                  placeholder="Clarifying metadata..."
-                  className="w-full bg-dark-surface border border-white/5 rounded px-4 py-3 text-sm focus:outline-none focus:border-cyan-vibrant/50 text-white placeholder:text-slate-700 transition-colors"
-                />
-              </div>
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <label className="text-[10px] font-bold text-slate-500 tracking-widest uppercase">Content Stream</label>
+                    <div className="flex bg-darker-surface rounded p-1 border border-white/5">
+                      <button 
+                        type="button"
+                        onClick={() => setIsHtmlMode(false)}
+                        className={`flex items-center gap-2 px-3 py-1.5 rounded text-[10px] font-bold transition-all ${!isHtmlMode ? 'bg-cyan-vibrant text-black' : 'text-slate-500 hover:text-white'}`}
+                      >
+                        <Eye size={12} /> VISUAL
+                      </button>
+                      <button 
+                        type="button"
+                        onClick={() => setIsHtmlMode(true)}
+                        className={`flex items-center gap-2 px-3 py-1.5 rounded text-[10px] font-bold transition-all ${isHtmlMode ? 'bg-magenta-vibrant text-black' : 'text-slate-500 hover:text-white'}`}
+                      >
+                        <Code size={12} /> HTML SOURCE
+                      </button>
+                    </div>
+                  </div>
 
-              <div className="space-y-2">
-                <label className="text-[10px] font-bold text-slate-500 tracking-widest uppercase flex items-center gap-2">
-                  <ImageIcon size={12} /> Image Uplink URL
-                </label>
-                <input 
-                  required
-                  value={image}
-                  onChange={(e) => setImage(e.target.value)}
-                  placeholder="https://images.unsplash.com/..."
-                  className="w-full bg-dark-surface border border-white/5 rounded px-4 py-3 text-sm focus:outline-none focus:border-cyan-vibrant/50 text-white placeholder:text-slate-700 transition-colors"
-                />
-              </div>
-
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <label className="text-[10px] font-bold text-slate-500 tracking-widest uppercase">Content Stream</label>
-                  <div className="flex bg-dark-surface rounded p-1 border border-white/5">
-                    <button 
-                      type="button"
-                      onClick={() => setIsHtmlMode(false)}
-                      className={`flex items-center gap-2 px-3 py-1.5 rounded text-[10px] font-bold transition-all ${!isHtmlMode ? 'bg-cyan-vibrant text-black' : 'text-slate-500 hover:text-white'}`}
-                    >
-                      <Eye size={12} /> VISUAL
-                    </button>
-                    <button 
-                      type="button"
-                      onClick={() => setIsHtmlMode(true)}
-                      className={`flex items-center gap-2 px-3 py-1.5 rounded text-[10px] font-bold transition-all ${isHtmlMode ? 'bg-magenta-vibrant text-black' : 'text-slate-500 hover:text-white'}`}
-                    >
-                      <Code size={12} /> HTML SOURCE
-                    </button>
+                  <div className="min-h-[400px] border border-white/5 rounded overflow-hidden bg-darker-surface font-display selection:bg-cyan-vibrant/30">
+                    {isHtmlMode ? (
+                      <textarea 
+                        value={content}
+                        onChange={(e) => setContent(e.target.value)}
+                        className="w-full h-[400px] bg-darker-surface p-6 font-mono text-xs text-cyan-vibrant/80 focus:outline-none resize-none leading-relaxed border-none ring-0"
+                        spellCheck={false}
+                      />
+                    ) : (
+                      <div className="quill-container h-[400px]">
+                        <ReactQuill 
+                          theme="snow"
+                          value={content}
+                          onChange={setContent}
+                          modules={modules}
+                          className="h-[356px] text-slate-200 border-none"
+                        />
+                      </div>
+                    )}
                   </div>
                 </div>
 
-                <div className="min-h-[400px] border border-white/5 rounded overflow-hidden bg-dark-surface font-display selection:bg-cyan-vibrant/30">
-                  {isHtmlMode ? (
-                    <textarea 
-                      value={content}
-                      onChange={(e) => setContent(e.target.value)}
-                      className="w-full h-[400px] bg-darker-surface p-6 font-mono text-xs text-cyan-vibrant/80 focus:outline-none resize-none leading-relaxed border-none ring-0"
-                      spellCheck={false}
-                    />
+                <button 
+                  disabled={isSubmitting}
+                  type="submit"
+                  className={`w-full bg-gradient-to-r ${editingPostId ? 'from-magenta-vibrant to-cyan-vibrant' : 'from-cyan-vibrant to-magenta-vibrant'} text-black font-extrabold py-5 rounded-xs text-[10px] tracking-[0.4em] uppercase hover:opacity-90 transition-all flex items-center justify-center gap-3 disabled:opacity-50 shadow-[0_0_20px_rgba(0,229,255,0.2)]`}
+                >
+                  {isSubmitting ? (
+                    <>SYNCING TRANSMISSION...</>
                   ) : (
-                    <div className="quill-container h-[400px]">
-                      <ReactQuill 
-                        theme="snow"
-                        value={content}
-                        onChange={setContent}
-                        modules={modules}
-                        className="h-[356px] text-slate-200 border-none"
-                      />
-                    </div>
+                    <>
+                      <Save size={18} />
+                      {editingPostId ? 'UPDATE_UNIVERSAL_VAULT' : 'SYNC_TO_UNIVERSAL_VAULT'}
+                    </>
                   )}
-                </div>
-              </div>
+                </button>
+              </form>
+            </div>
 
-              <button 
-                disabled={isSubmitting}
-                type="submit"
-                className="w-full bg-gradient-to-r from-cyan-vibrant to-magenta-vibrant text-black font-extrabold py-5 rounded-xs text-[10px] tracking-[0.4em] uppercase hover:opacity-90 transition-all flex items-center justify-center gap-3 disabled:opacity-50 shadow-[0_0_20px_rgba(0,229,255,0.2)]"
-              >
-                {isSubmitting ? (
-                  <>LOGGING TRANSMISSION...</>
-                ) : (
-                  <>
-                    <Save size={18} />
-                    SYNC TO UNIVERSAL VAULT
-                  </>
+            {/* Existing Transmissions List */}
+            <div className="space-y-6">
+              <h3 className="text-xs font-bold text-slate-500 tracking-[0.3em] uppercase flex items-center gap-3">
+                <List size={14} /> ARCHIVED_TRANSMISSIONS
+              </h3>
+
+              <div className="space-y-4">
+                {posts.map((post) => (
+                  <div key={post.id} className="bg-dark-surface/40 border border-white/5 p-5 rounded-sm flex items-center gap-6 group hover:border-cyan-vibrant/30 transition-all">
+                    <div className="w-24 h-16 shrink-0 rounded overflow-hidden border border-white/5">
+                      <img src={post.image} alt="" className="w-full h-full object-cover grayscale brightness-50 group-hover:grayscale-0 group-hover:brightness-100 transition-all duration-700" />
+                    </div>
+                    
+                    <div className="flex-grow">
+                      <div className="flex items-center gap-3 mb-1">
+                        <span className={`text-[9px] font-black tracking-widest uppercase ${post.categoryColor}`}>{post.category}</span>
+                        <span className="text-slate-700 text-[9px] font-bold">{post.date}</span>
+                      </div>
+                      <h4 className="text-white font-bold text-sm uppercase tracking-tight line-clamp-1 group-hover:text-cyan-vibrant transition-colors">{post.title}</h4>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <button 
+                        onClick={() => handleEditPost(post)}
+                        className={`p-3 text-slate-500 hover:text-cyan-vibrant hover:bg-cyan-vibrant/5 rounded transition-all ${editingPostId === post.id ? 'text-cyan-vibrant bg-cyan-vibrant/10' : ''}`}
+                        title="Edit Transmission"
+                      >
+                        <Edit3 size={18} />
+                      </button>
+                      <button 
+                        onClick={() => handleDeletePost(post.id)}
+                        className="p-3 text-slate-500 hover:text-red-500 hover:bg-red-500/5 rounded transition-all"
+                        title="Delete from Archive"
+                      >
+                        <Trash2 size={18} />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+
+                {posts.length === 0 && (
+                  <div className="py-20 text-center border border-dashed border-white/5 rounded">
+                    <p className="text-slate-600 text-[10px] font-bold tracking-widest uppercase">No archived transmissions found in sector</p>
+                  </div>
                 )}
-              </button>
-            </form>
+              </div>
+            </div>
           </motion.div>
         ) : (
           <motion.div

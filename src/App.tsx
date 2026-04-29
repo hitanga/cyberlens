@@ -1,4 +1,4 @@
-import { Search, ChevronRight, Bookmark, LayoutGrid, List, ArrowLeft, ArrowRight, Rss, Globe, Mail, Heart, Share2, MoreVertical, Send, User, LogOut, Shield } from 'lucide-react';
+import { Search, ChevronRight, LayoutGrid, List, ArrowLeft, ArrowRight, Rss, Globe, Mail, Heart, Share2, MoreVertical, Send, User, LogOut, Shield } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useState, useEffect, ChangeEvent, FormEvent } from 'react';
 import { BLOG_POSTS as STATIC_POSTS, BlogPost, Comment, CarouselSlide } from './constants';
@@ -674,7 +674,6 @@ function PostCard({ post, delay, onClick, layoutMode, isLiked }: { post: BlogPos
                 {isLiked ? post.likes : formatLikes(post.likes)}
               </div>
             </div>
-            <button className="text-slate-700 hover:text-cyan-vibrant transition-all"><Bookmark size={20} /></button>
           </div>
       </div>
     </motion.article>
