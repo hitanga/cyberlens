@@ -451,47 +451,66 @@ export default function App() {
               onBack={() => navigateTo('HOME')}
             />
           ) : currentView === "BLOGS" ? (
-            <motion.div
-              key="blogs-list"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="max-w-7xl mx-auto px-6 py-20"
-            >
-              <div className="flex flex-col md:flex-row md:items-end justify-between gap-8 mb-16 px-4">
-                <div>
-                  <span className="text-cyan-vibrant font-black text-[10px] tracking-[0.4em] uppercase mb-4 block">Archive Directory</span>
-                  <h3 className="text-4xl font-black tracking-tighter text-white uppercase italic">ALL_TRANSMISSIONS</h3>
+            !selectedPostId ? (
+              <motion.div
+                key="blogs-list"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="max-w-7xl mx-auto px-6 py-20"
+              >
+                <div className="flex flex-col md:flex-row md:items-end justify-between gap-8 mb-16 px-4">
+                  <div>
+                    <span className="text-cyan-vibrant font-black text-[10px] tracking-[0.4em] uppercase mb-4 block">Archive Directory</span>
+                    <h3 className="text-4xl font-black tracking-tighter text-white uppercase italic">ALL_TRANSMISSIONS</h3>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button 
+                      onClick={() => setLayoutMode("grid")}
+                      className={`p-3 bg-dark-surface border border-white/5 rounded-xs transition-colors ${layoutMode === "grid" ? "text-cyan-vibrant border-cyan-vibrant/30" : "text-slate-600 hover:text-white"}`}
+                    >
+                      <LayoutGrid size={20} />
+                    </button>
+                    <button 
+                      onClick={() => setLayoutMode("list")}
+                      className={`p-3 bg-dark-surface border border-white/5 rounded-xs transition-colors ${layoutMode === "list" ? "text-cyan-vibrant border-cyan-vibrant/30" : "text-slate-600 hover:text-white"}`}
+                    >
+                      <List size={20} />
+                    </button>
+                  </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  <button 
-                    onClick={() => setLayoutMode("grid")}
-                    className={`p-3 bg-dark-surface border border-white/5 rounded-xs transition-colors ${layoutMode === "grid" ? "text-cyan-vibrant border-cyan-vibrant/30" : "text-slate-600 hover:text-white"}`}
-                  >
-                    <LayoutGrid size={20} />
-                  </button>
-                  <button 
-                    onClick={() => setLayoutMode("list")}
-                    className={`p-3 bg-dark-surface border border-white/5 rounded-xs transition-colors ${layoutMode === "list" ? "text-cyan-vibrant border-cyan-vibrant/30" : "text-slate-600 hover:text-white"}`}
-                  >
-                    <List size={20} />
-                  </button>
-                </div>
-              </div>
 
-              <div className={layoutMode === "grid" ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8" : "grid grid-cols-1 gap-10"}>
-                {filteredPosts.map((post, index) => (
-                  <PostCard 
-                    key={post.id} 
-                    post={post} 
-                    delay={index * 0.05} 
-                    layoutMode={layoutMode}
-                    isLiked={likedPostIds.includes(post.id)}
-                    onClick={() => setSelectedPostId(post.id)} 
+                <div className={layoutMode === "grid" ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8" : "grid grid-cols-1 gap-10"}>
+                  {filteredPosts.map((post, index) => (
+                    <PostCard 
+                      key={post.id} 
+                      post={post} 
+                      delay={index * 0.05} 
+                      layoutMode={layoutMode}
+                      isLiked={likedPostIds.includes(post.id)}
+                      onClick={() => setSelectedPostId(post.id)} 
+                    />
+                  ))}
+                </div>
+              </motion.div>
+            ) : (
+              <motion.div
+                key="blog-detail"
+                initial={{ opacity: 0, scale: 0.98 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0 }}
+                className="max-w-7xl mx-auto px-6 py-12"
+              >
+                {selectedPost && (
+                  <BlogPostDetail 
+                    post={selectedPost} 
+                    onBack={() => setSelectedPostId(null)} 
+                    isLiked={likedPostIds.includes(selectedPost.id)}
+                    onLike={() => toggleLike(selectedPost.id)}
                   />
-                ))}
-              </div>
-            </motion.div>
+                )}
+              </motion.div>
+            )
           ) : currentView === "PRIVACY" ? (
             <InfoPage 
               key="privacy"
