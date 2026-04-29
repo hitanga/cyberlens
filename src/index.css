@@ -1,0 +1,156 @@
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Poppins", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Poppins", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "Poppins", ui-sans-serif, system-ui, sans-serif;
+  
+  --color-cyan-vibrant: #00E5FF;
+  --color-magenta-vibrant: #FF00FF;
+  --color-dark-surface: #0F172A;
+  --color-darker-surface: #05070A;
+  --color-border-glow: rgba(0, 229, 255, 0.2);
+}
+
+/* Blockquote Styling (User Request) */
+blockquote {
+  position: relative !important;
+  padding: 1.5rem 1.5rem 1.5rem 2rem !important;
+  background-color: rgba(15, 23, 42, 0.4) !important; /* dark blueish bg */
+  border-left: 4px solid #FF00FF !important; /* magenta-vibrant */
+  border-radius: 0 0.5rem 0.5rem 0 !important;
+  margin: 2.5rem 0 !important;
+  border-right: none !important;
+  border-top: none !important;
+  border-bottom: none !important;
+}
+
+blockquote p {
+  font-style: italic !important;
+  font-size: 1.25rem !important;
+  line-height: 1.75 !important;
+  color: #E2E8F0 !important;
+  margin: 0 !important;
+  opacity: 0.9;
+}
+
+@layer base {
+  body {
+    @apply bg-darker-surface text-slate-200 font-display selection:bg-cyan-vibrant/30;
+  }
+}
+
+@layer components {
+  .neon-border {
+    @apply border border-border-glow shadow-[0_0_15px_rgba(0,229,255,0.05)];
+  }
+  
+  .neon-text-cyan {
+    @apply text-cyan-vibrant shadow-[0_0_10px_rgba(0,229,255,0.3)];
+  }
+  
+  .btn-cyan {
+    @apply bg-cyan-vibrant text-black font-bold px-6 py-2 uppercase tracking-tighter hover:bg-white transition-colors duration-200;
+  }
+}
+
+/* Custom scrollbar for that tech feel */
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #05070A;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #1E293B;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #00E5FF;
+}
+
+/* Quill Theme Overrides */
+.ql-toolbar.ql-snow {
+  border-color: rgba(255, 255, 255, 0.05) !important;
+  background-color: #0F172A !important;
+}
+
+.ql-container.ql-snow {
+  border-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+.ql-editor {
+  color: #E2E8F0 !important;
+  font-family: var(--font-sans) !important;
+  font-size: 0.875rem !important;
+}
+
+.ql-editor blockquote {
+  border-left: 4px solid #FF00FF !important;
+  background-color: rgba(15, 23, 42, 0.3) !important;
+  padding: 1.5rem !important;
+  margin: 1.5rem 0 !important;
+  border-radius: 0 0.5rem 0.5rem 0 !important;
+}
+
+.ql-editor blockquote p {
+  font-style: italic !important;
+  font-size: 1.1rem !important;
+  color: #E2E8F0 !important;
+}
+
+.ql-editor.ql-blank::before {
+  color: #475569 !important;
+  font-style: normal !important;
+}
+
+.ql-snow .ql-stroke {
+  stroke: #94A3B8 !important;
+}
+
+.ql-snow .ql-fill {
+  fill: #94A3B8 !important;
+}
+
+.ql-snow .ql-picker {
+  color: #94A3B8 !important;
+}
+
+.ql-snow .ql-picker-options {
+  background-color: #0F172A !important;
+  border-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+.ql-snow.ql-toolbar button:hover,
+.ql-snow .ql-toolbar button:hover,
+.ql-snow.ql-toolbar button:focus,
+.ql-snow .ql-toolbar button:focus,
+.ql-snow.ql-toolbar button.ql-active,
+.ql-snow .ql-toolbar button.ql-active,
+.ql-snow.ql-toolbar .ql-picker-label:hover,
+.ql-snow .ql-toolbar .ql-picker-label:hover,
+.ql-snow.ql-toolbar .ql-picker-label.ql-active,
+.ql-snow .ql-toolbar .ql-picker-label.ql-active,
+.ql-snow.ql-toolbar .ql-picker-item:hover,
+.ql-snow .ql-toolbar .ql-picker-item:hover,
+.ql-snow.ql-toolbar .ql-picker-item.ql-selected,
+.ql-snow .ql-toolbar .ql-picker-item.ql-selected {
+  color: #00E5FF !important;
+}
+
+.ql-snow.ql-toolbar button:hover .ql-stroke,
+.ql-snow .ql-toolbar button:hover .ql-stroke,
+.ql-snow.ql-toolbar button:focus .ql-stroke,
+.ql-snow .ql-toolbar button:focus .ql-stroke,
+.ql-snow.ql-toolbar button.ql-active .ql-stroke,
+.ql-snow .ql-toolbar button.ql-active .ql-stroke,
+.ql-snow.ql-toolbar .ql-picker-label:hover .ql-stroke,
+.ql-snow .ql-toolbar .ql-picker-label:hover .ql-stroke,
+.ql-snow.ql-toolbar .ql-picker-label.ql-active .ql-stroke,
+.ql-snow .ql-toolbar .ql-picker-label.ql-active .ql-stroke {
+  stroke: #00E5FF !important;
+}

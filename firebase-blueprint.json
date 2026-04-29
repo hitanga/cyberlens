@@ -1,0 +1,45 @@
+{
+  "entities": {
+    "BlogPost": {
+      "title": "BlogPost",
+      "description": "A single blog transmission stored in the vault.",
+      "type": "object",
+      "properties": {
+        "category": { "type": "string", "description": "The classification of the transmission" },
+        "categoryColor": { "type": "string", "description": "The UI color for the category" },
+        "title": { "type": "string", "description": "The primary transmission header" },
+        "subtitle": { "type": "string", "description": "Secondary clarifying data" },
+        "excerpt": { "type": "string", "description": "A brief summary for preview" },
+        "content": { "type": "string", "description": "The full encrypted transmission logs (HTML)" },
+        "date": { "type": "string", "description": "Timestamp of origin" },
+        "readTime": { "type": "string", "description": "Estimated neural processing duration" },
+        "image": { "type": "string", "description": "Visual data uplink URL" },
+        "likes": { "type": "number", "description": "Community heartbeats" }
+      },
+      "required": ["title", "category", "content", "image", "date"]
+    },
+    "Comment": {
+      "title": "Comment",
+      "description": "A response logged in the transmission thread.",
+      "type": "object",
+      "properties": {
+        "user": { "type": "string", "description": "The operator handle" },
+        "avatarColor": { "type": "string", "description": "The spectral signature color" },
+        "time": { "type": "string", "description": "Relative time of log" },
+        "location": { "type": "string", "description": "Originating sector" },
+        "content": { "type": "string", "description": "The message body" }
+      },
+      "required": ["user", "content", "time"]
+    }
+  },
+  "firestore": {
+    "/posts/{postId}": {
+      "schema": "BlogPost",
+      "description": "Global vault of all blog transmissions"
+    },
+    "/posts/{postId}/comments/{commentId}": {
+      "schema": "Comment",
+      "description": "Localized thread responses for a specific post"
+    }
+  }
+}
