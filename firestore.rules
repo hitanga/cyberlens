@@ -39,5 +39,12 @@ service cloud.firestore {
           request.resource.data.content.size() < 500;
       }
     }
+
+    match /subscribers/{subscriberId} {
+      allow create: if request.resource.data.keys().hasAll(['email', 'timestamp']) &&
+        request.resource.data.email is string &&
+        request.resource.data.email.size() < 256;
+      allow read, update, delete: if isAdmin();
+    }
   }
 }

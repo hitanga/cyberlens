@@ -30,6 +30,16 @@
         "content": { "type": "string", "description": "The message body" }
       },
       "required": ["user", "content", "time"]
+    },
+    "Subscriber": {
+      "title": "Subscriber",
+      "description": "An operator subscribed for latest updates.",
+      "type": "object",
+      "properties": {
+        "email": { "type": "string", "description": "Subscriber's email" },
+        "timestamp": { "type": "string", "description": "Time of subscription" }
+      },
+      "required": ["email", "timestamp"]
     }
   },
   "firestore": {
@@ -40,6 +50,10 @@
     "/posts/{postId}/comments/{commentId}": {
       "schema": "Comment",
       "description": "Localized thread responses for a specific post"
+    },
+    "/subscribers/{subscriberId}": {
+      "schema": "Subscriber",
+      "description": "Collection of all node subscribers"
     }
   }
 }

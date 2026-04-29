@@ -1,9 +1,9 @@
 import { Search, ChevronRight, Bookmark, LayoutGrid, List, ArrowLeft, ArrowRight, Rss, Globe, Mail, Heart, Share2, MoreVertical, Send, User, LogOut, Shield } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { useState, useEffect, ChangeEvent } from 'react';
+import { useState, useEffect, ChangeEvent, FormEvent } from 'react';
 import { BLOG_POSTS as STATIC_POSTS, BlogPost, Comment } from './constants';
 import { db, auth, signInWithGoogle } from './lib/firebase';
-import { collection, query, orderBy, onSnapshot, doc, getDoc } from 'firebase/firestore';
+import { collection, query, orderBy, onSnapshot, doc, getDoc, addDoc, serverTimestamp } from 'firebase/firestore';
 import { onAuthStateChanged, signOut, User as FirebaseUser } from 'firebase/auth';
 import AdminDashboard from './components/AdminDashboard';
 import BlogPostDetail from './components/BlogPostDetail';
@@ -19,6 +19,10 @@ export default function App() {
   const [posts, setPosts] = useState<BlogPost[]>(STATIC_POSTS);
   const [isLoading, setIsLoading] = useState(true);
   const [likedPostIds, setLikedPostIds] = useState<string[]>([]);
+  const [subscribeEmail, setSubscribeEmail] = useState("");
+  const [isSubscribing, setIsSubscribing] = useState(false);
+  const [subscribeStatus, setSubscribeStatus] = useState<"idle" | "success" | "error" | "already">("idle");
+  const [showSubscribeInput, setShowSubscribeInput] = useState(false);
 
   const [isLoggingIn, setIsLoggingIn] = useState(false);
 
@@ -120,6 +124,40 @@ export default function App() {
     }
   };
 
+  const handleSubscribe = async (e?: FormEvent) => {
+    if (e) e.preventDefault();
+    
+    const emailToUse = user ? user.email : subscribeEmail;
+    
+    if (!emailToUse || !emailToUse.includes('@')) {
+      alert("Please provide a valid neural address (email).");
+      return;
+    }
+
+    setIsSubscribing(true);
+    setSubscribeStatus("idle");
+
+    try {
+      await addDoc(collection(db, 'subscribers'), {
+        email: emailToUse,
+        timestamp: new Date().toISOString(),
+        serverTime: serverTimestamp()
+      });
+      setSubscribeStatus("success");
+      setSubscribeEmail("");
+      setShowSubscribeInput(false);
+      
+      // Auto reset success message after 5 seconds
+      setTimeout(() => setSubscribeStatus("idle"), 5000);
+    } catch (error) {
+      console.error("Subscription failed:", error);
+      setSubscribeStatus("error");
+    } finally {
+      setIsSubscribing(true);
+      setIsSubscribing(false);
+    }
+  };
+
   const navigateTo = (view: "HOME" | "PRIVACY" | "TERMS" | "CONTACT" | "RSS" | "ADMIN") => {
     setCurrentView(view);
     setSelectedPostId(null);
@@ -194,11 +232,48 @@ export default function App() {
                 </button>
               )}
               
-              {!user && (
-                <button id="subscribe-btn" className="btn-cyan rounded-xs text-xs py-2 px-6">
-                  SUBSCRIBE
-                </button>
-              )}
+              <div className="relative">
+                {subscribeStatus === "success" ? (
+                  <span className="text-[10px] font-bold text-cyan-vibrant uppercase animate-pulse">ACCESS_GRANTED</span>
+                ) : (
+                  <>
+                    {!user && showSubscribeInput ? (
+                      <motion.form 
+                        initial={{ opacity: 0, width: 0 }}
+                        animate={{ opacity: 1, width: "240px" }}
+                        onSubmit={handleSubscribe}
+                        className="flex items-center bg-dark-surface border border-cyan-vibrant/30 rounded-sm overflow-hidden"
+                      >
+                        <input 
+                          type="email" 
+                          placeholder="email@perimeter.net"
+                          value={subscribeEmail}
+                          onChange={(e) => setSubscribeEmail(e.target.value)}
+                          className="bg-transparent border-none outline-none text-[10px] px-3 py-2 w-full text-slate-200 placeholder:text-slate-600 focus:ring-0"
+                          autoFocus
+                          onBlur={() => !subscribeEmail && setShowSubscribeInput(false)}
+                        />
+                        <button 
+                          type="submit"
+                          disabled={isSubscribing}
+                          className="px-3 text-cyan-vibrant hover:text-white transition-colors"
+                        >
+                          <Send size={12} className={isSubscribing ? "animate-pulse" : ""} />
+                        </button>
+                      </motion.form>
+                    ) : (
+                      <button 
+                        id="subscribe-btn" 
+                        onClick={user ? handleSubscribe : () => setShowSubscribeInput(true)}
+                        disabled={isSubscribing}
+                        className={`btn-cyan rounded-xs text-[10px] py-2 px-6 tracking-widest font-bold uppercase transition-all ${isSubscribing ? 'opacity-50 cursor-wait' : ''}`}
+                      >
+                        {isSubscribing ? 'TRANSMITTING...' : 'SUBSCRIBE'}
+                      </button>
+                    )}
+                  </>
+                )}
+              </div>
             </div>
           </div>
         </div>
