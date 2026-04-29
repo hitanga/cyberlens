@@ -1,17 +1,23 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { motion } from 'motion/react';
-import { ArrowLeft, Save, Image as ImageIcon, Type, Code, Eye, Terminal } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
+import { ArrowLeft, Save, Image as ImageIcon, Type, Code, Eye, Terminal, Layers, Plus, Trash2, ArrowUp, ArrowDown } from 'lucide-react';
 import ReactQuill from 'react-quill-new';
 import 'react-quill-new/dist/quill.snow.css';
 import { db, auth } from '../lib/firebase';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, query, orderBy, onSnapshot, deleteDoc, doc, updateDoc } from 'firebase/firestore';
 import DOMPurify from 'dompurify';
+import { CarouselSlide } from '../constants';
 
 interface AdminDashboardProps {
   onBack: () => void;
 }
 
+type AdminTab = 'POSTS' | 'CAROUSEL';
+
 export default function AdminDashboard({ onBack }: AdminDashboardProps) {
+  const [activeTab, setActiveTab] = useState<AdminTab>('POSTS');
+  
+  // Blog Post State
   const [title, setTitle] = useState('');
   const [subtitle, setSubtitle] = useState('');
   const [category, setCategory] = useState('QUANTUM INTELLIGENCE');
@@ -21,7 +27,26 @@ export default function AdminDashboard({ onBack }: AdminDashboardProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [status, setStatus] = useState<{ type: 'success' | 'error' | null; message: string }>({ type: null, message: '' });
 
+  // Carousel State
+  const [slides, setSlides] = useState<CarouselSlide[]>([]);
+  const [slideTitle, setSlideTitle] = useState('');
+  const [slideSubtitle, setSlideSubtitle] = useState('');
+  const [slideDescription, setSlideDescription] = useState('');
+  const [slideImage, setSlideImage] = useState('');
+  const [slidePostId, setSlidePostId] = useState('');
+  
   const quillRef = useRef<ReactQuill>(null);
+
+  // Fetch Slides
+  useEffect(() => {
+    if (activeTab === 'CAROUSEL') {
+      const q = query(collection(db, 'carousel_slides'), orderBy('order', 'asc'));
+      const unsubscribe = onSnapshot(q, (snapshot) => {
+        setSlides(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as CarouselSlide[]);
+      });
+      return () => unsubscribe();
+    }
+  }, [activeTab]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -62,6 +87,56 @@ export default function AdminDashboard({ onBack }: AdminDashboardProps) {
     }
   };
 
+  const handleAddSlide = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+    try {
+      await addDoc(collection(db, 'carousel_slides'), {
+        title: slideTitle,
+        subtitle: slideSubtitle,
+        description: slideDescription,
+        image: slideImage,
+        postId: slidePostId,
+        order: slides.length
+      });
+      setSlideTitle('');
+      setSlideSubtitle('');
+      setSlideDescription('');
+      setSlideImage('');
+      setSlidePostId('');
+      setStatus({ type: 'success', message: 'SLIDE ADDED' });
+    } catch (error) {
+      console.error(error);
+      setStatus({ type: 'error', message: 'FAILED TO ADD SLIDE' });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const deleteSlide = async (id: string) => {
+    if (!confirm("Confirm deletion of this intelligence slide?")) return;
+    try {
+      await deleteDoc(doc(db, 'carousel_slides', id));
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
+  const moveSlide = async (index: number, direction: 'up' | 'down') => {
+    const targetIndex = direction === 'up' ? index - 1 : index + 1;
+    if (targetIndex < 0 || targetIndex >= slides.length) return;
+    
+    const currentSlide = slides[index];
+    const targetSlide = slides[targetIndex];
+    
+    try {
+      await updateDoc(doc(db, 'carousel_slides', currentSlide.id), { order: targetIndex });
+      await updateDoc(doc(db, 'carousel_slides', targetSlide.id), { order: index });
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
   const modules = {
     toolbar: [
       [{ 'header': [1, 2, 3, false] }],
@@ -74,7 +149,7 @@ export default function AdminDashboard({ onBack }: AdminDashboardProps) {
 
   return (
     <div className="max-w-5xl mx-auto py-12 px-6">
-      <header className="flex items-center justify-between mb-12">
+      <header className="flex flex-col md:flex-row md:items-center justify-between gap-8 mb-12">
         <div>
           <button 
             onClick={onBack}
@@ -89,137 +164,277 @@ export default function AdminDashboard({ onBack }: AdminDashboardProps) {
           </h2>
         </div>
         
-        {auth.currentUser && (
-          <div className="text-right">
-            <p className="text-[10px] text-slate-500 font-bold tracking-widest uppercase">Operator Authenticated</p>
-            <p className="text-cyan-vibrant text-xs font-mono">{auth.currentUser.email}</p>
-          </div>
-        )}
+        <div className="flex bg-dark-surface p-1 rounded border border-white/5 self-start md:self-auto">
+          <button 
+            onClick={() => setActiveTab('POSTS')}
+            className={`px-6 py-2 rounded text-[10px] font-bold tracking-widest uppercase transition-all ${activeTab === 'POSTS' ? 'bg-cyan-vibrant text-black' : 'text-slate-500 hover:text-white'}`}
+          >
+            Transmissions
+          </button>
+          <button 
+            onClick={() => setActiveTab('CAROUSEL')}
+            className={`px-6 py-2 rounded text-[10px] font-bold tracking-widest uppercase transition-all ${activeTab === 'CAROUSEL' ? 'bg-magenta-vibrant text-black' : 'text-slate-500 hover:text-white'}`}
+          >
+            Neural Carousel
+          </button>
+        </div>
       </header>
 
-      <form onSubmit={handleSubmit} className="space-y-8">
-        {status.type && (
-          <motion.div 
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className={`p-4 rounded border text-xs font-bold tracking-widest uppercase ${
-              status.type === 'success' ? 'bg-cyan-500/10 border-cyan-500/50 text-cyan-500' : 'bg-red-500/10 border-red-500/50 text-red-500'
-            }`}
+      <AnimatePresence mode="wait">
+        {activeTab === 'POSTS' ? (
+          <motion.div
+            key="posts-form"
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: 20 }}
           >
-            {status.message}
-          </motion.div>
-        )}
+            <form onSubmit={handleSubmit} className="space-y-8">
+              {status.type && (
+                <motion.div 
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className={`p-4 rounded border text-xs font-bold tracking-widest uppercase ${
+                    status.type === 'success' ? 'bg-cyan-500/10 border-cyan-500/50 text-cyan-500' : 'bg-red-500/10 border-red-500/50 text-red-500'
+                  }`}
+                >
+                  {status.message}
+                </motion.div>
+              )}
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          <div className="space-y-2">
-            <label className="text-[10px] font-bold text-slate-500 tracking-widest uppercase flex items-center gap-2">
-              <Type size={12} /> Transmission Title
-            </label>
-            <input 
-              required
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="Enter headline..."
-              className="w-full bg-dark-surface border border-white/5 rounded px-4 py-3 text-sm focus:outline-none focus:border-cyan-vibrant/50 text-white placeholder:text-slate-700 transition-colors"
-            />
-          </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div className="space-y-2">
+                  <label className="text-[10px] font-bold text-slate-500 tracking-widest uppercase flex items-center gap-2">
+                    <Type size={12} /> Transmission Title
+                  </label>
+                  <input 
+                    required
+                    value={title}
+                    onChange={(e) => setTitle(e.target.value)}
+                    placeholder="Enter headline..."
+                    className="w-full bg-dark-surface border border-white/5 rounded px-4 py-3 text-sm focus:outline-none focus:border-cyan-vibrant/50 text-white placeholder:text-slate-700 transition-colors"
+                  />
+                </div>
 
-          <div className="space-y-2">
-            <label className="text-[10px] font-bold text-slate-500 tracking-widest uppercase">Classification</label>
-            <select 
-              value={category}
-              onChange={(e) => setCategory(e.target.value)}
-              className="w-full bg-dark-surface border border-white/5 rounded px-4 py-3 text-sm focus:outline-none focus:border-cyan-vibrant/50 text-white transition-colors appearance-none"
-            >
-              <option value="QUANTUM INTELLIGENCE">QUANTUM INTELLIGENCE</option>
-              <option value="HARDWARE">HARDWARE</option>
-              <option value="CYBERSECURITY">CYBERSECURITY</option>
-              <option value="NEURAL LINKS">NEURAL LINKS</option>
-            </select>
-          </div>
-        </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-bold text-slate-500 tracking-widest uppercase">Classification</label>
+                  <select 
+                    value={category}
+                    onChange={(e) => setCategory(e.target.value)}
+                    className="w-full bg-dark-surface border border-white/5 rounded px-4 py-3 text-sm focus:outline-none focus:border-cyan-vibrant/50 text-white transition-colors appearance-none"
+                  >
+                    <option value="QUANTUM INTELLIGENCE">QUANTUM INTELLIGENCE</option>
+                    <option value="HARDWARE">HARDWARE</option>
+                    <option value="CYBERSECURITY">CYBERSECURITY</option>
+                    <option value="NEURAL LINKS">NEURAL LINKS</option>
+                  </select>
+                </div>
+              </div>
 
-        <div className="space-y-2">
-          <label className="text-[10px] font-bold text-slate-500 tracking-widest uppercase">Secondary Header (Subtitle)</label>
-          <input 
-            value={subtitle}
-            onChange={(e) => setSubtitle(e.target.value)}
-            placeholder="Clarifying metadata..."
-            className="w-full bg-dark-surface border border-white/5 rounded px-4 py-3 text-sm focus:outline-none focus:border-cyan-vibrant/50 text-white placeholder:text-slate-700 transition-colors"
-          />
-        </div>
-
-        <div className="space-y-2">
-          <label className="text-[10px] font-bold text-slate-500 tracking-widest uppercase flex items-center gap-2">
-            <ImageIcon size={12} /> Image Uplink URL
-          </label>
-          <input 
-            required
-            value={image}
-            onChange={(e) => setImage(e.target.value)}
-            placeholder="https://images.unsplash.com/..."
-            className="w-full bg-dark-surface border border-white/5 rounded px-4 py-3 text-sm focus:outline-none focus:border-cyan-vibrant/50 text-white placeholder:text-slate-700 transition-colors"
-          />
-        </div>
-
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <label className="text-[10px] font-bold text-slate-500 tracking-widest uppercase">Content Stream</label>
-            <div className="flex bg-dark-surface rounded p-1 border border-white/5">
-              <button 
-                type="button"
-                onClick={() => setIsHtmlMode(false)}
-                className={`flex items-center gap-2 px-3 py-1.5 rounded text-[10px] font-bold transition-all ${!isHtmlMode ? 'bg-cyan-vibrant text-black' : 'text-slate-500 hover:text-white'}`}
-              >
-                <Eye size={12} /> VISUAL
-              </button>
-              <button 
-                type="button"
-                onClick={() => setIsHtmlMode(true)}
-                className={`flex items-center gap-2 px-3 py-1.5 rounded text-[10px] font-bold transition-all ${isHtmlMode ? 'bg-magenta-vibrant text-black' : 'text-slate-500 hover:text-white'}`}
-              >
-                <Code size={12} /> HTML SOURCE
-              </button>
-            </div>
-          </div>
-
-          <div className="min-h-[400px] border border-white/5 rounded overflow-hidden bg-dark-surface">
-            {isHtmlMode ? (
-              <textarea 
-                value={content}
-                onChange={(e) => setContent(e.target.value)}
-                className="w-full h-[400px] bg-darker-surface p-6 font-mono text-xs text-cyan-vibrant/80 focus:outline-none resize-none leading-relaxed"
-                spellCheck={false}
-              />
-            ) : (
-              <div className="quill-container h-[400px]">
-                <ReactQuill 
-                  theme="snow"
-                  value={content}
-                  onChange={setContent}
-                  modules={modules}
-                  className="h-[356px] text-slate-200"
+              <div className="space-y-2">
+                <label className="text-[10px] font-bold text-slate-500 tracking-widest uppercase">Secondary Header (Subtitle)</label>
+                <input 
+                  value={subtitle}
+                  onChange={(e) => setSubtitle(e.target.value)}
+                  placeholder="Clarifying metadata..."
+                  className="w-full bg-dark-surface border border-white/5 rounded px-4 py-3 text-sm focus:outline-none focus:border-cyan-vibrant/50 text-white placeholder:text-slate-700 transition-colors"
                 />
               </div>
-            )}
-          </div>
-        </div>
 
-        <button 
-          disabled={isSubmitting}
-          type="submit"
-          className="w-full bg-gradient-to-r from-cyan-vibrant to-magenta-vibrant text-black font-extrabold py-4 rounded text-xs tracking-[0.3em] uppercase hover:opacity-90 transition-all flex items-center justify-center gap-3 disabled:opacity-50"
-        >
-          {isSubmitting ? (
-            <>LOGGING TRANSMISSION...</>
-          ) : (
-            <>
-              <Save size={18} />
-              SYNC TO UNIVERSAL VAULT
-            </>
-          )}
-        </button>
-      </form>
+              <div className="space-y-2">
+                <label className="text-[10px] font-bold text-slate-500 tracking-widest uppercase flex items-center gap-2">
+                  <ImageIcon size={12} /> Image Uplink URL
+                </label>
+                <input 
+                  required
+                  value={image}
+                  onChange={(e) => setImage(e.target.value)}
+                  placeholder="https://images.unsplash.com/..."
+                  className="w-full bg-dark-surface border border-white/5 rounded px-4 py-3 text-sm focus:outline-none focus:border-cyan-vibrant/50 text-white placeholder:text-slate-700 transition-colors"
+                />
+              </div>
+
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <label className="text-[10px] font-bold text-slate-500 tracking-widest uppercase">Content Stream</label>
+                  <div className="flex bg-dark-surface rounded p-1 border border-white/5">
+                    <button 
+                      type="button"
+                      onClick={() => setIsHtmlMode(false)}
+                      className={`flex items-center gap-2 px-3 py-1.5 rounded text-[10px] font-bold transition-all ${!isHtmlMode ? 'bg-cyan-vibrant text-black' : 'text-slate-500 hover:text-white'}`}
+                    >
+                      <Eye size={12} /> VISUAL
+                    </button>
+                    <button 
+                      type="button"
+                      onClick={() => setIsHtmlMode(true)}
+                      className={`flex items-center gap-2 px-3 py-1.5 rounded text-[10px] font-bold transition-all ${isHtmlMode ? 'bg-magenta-vibrant text-black' : 'text-slate-500 hover:text-white'}`}
+                    >
+                      <Code size={12} /> HTML SOURCE
+                    </button>
+                  </div>
+                </div>
+
+                <div className="min-h-[400px] border border-white/5 rounded overflow-hidden bg-dark-surface font-display selection:bg-cyan-vibrant/30">
+                  {isHtmlMode ? (
+                    <textarea 
+                      value={content}
+                      onChange={(e) => setContent(e.target.value)}
+                      className="w-full h-[400px] bg-darker-surface p-6 font-mono text-xs text-cyan-vibrant/80 focus:outline-none resize-none leading-relaxed border-none ring-0"
+                      spellCheck={false}
+                    />
+                  ) : (
+                    <div className="quill-container h-[400px]">
+                      <ReactQuill 
+                        theme="snow"
+                        value={content}
+                        onChange={setContent}
+                        modules={modules}
+                        className="h-[356px] text-slate-200 border-none"
+                      />
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <button 
+                disabled={isSubmitting}
+                type="submit"
+                className="w-full bg-gradient-to-r from-cyan-vibrant to-magenta-vibrant text-black font-extrabold py-5 rounded-xs text-[10px] tracking-[0.4em] uppercase hover:opacity-90 transition-all flex items-center justify-center gap-3 disabled:opacity-50 shadow-[0_0_20px_rgba(0,229,255,0.2)]"
+              >
+                {isSubmitting ? (
+                  <>LOGGING TRANSMISSION...</>
+                ) : (
+                  <>
+                    <Save size={18} />
+                    SYNC TO UNIVERSAL VAULT
+                  </>
+                )}
+              </button>
+            </form>
+          </motion.div>
+        ) : (
+          <motion.div
+            key="carousel-form"
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -20 }}
+            className="space-y-12"
+          >
+            {/* Add Slide Form */}
+            <div className="bg-dark-surface p-8 rounded-sm border border-white/5">
+              <h3 className="text-xl font-bold text-white mb-8 flex items-center gap-3 uppercase tracking-tight">
+                <Plus size={20} className="text-magenta-vibrant" />
+                Forge New Neural Slide
+              </h3>
+              
+              <form onSubmit={handleAddSlide} className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <label className="text-[10px] font-bold text-slate-500 tracking-widest uppercase">Slide Heading</label>
+                  <input 
+                    required
+                    value={slideTitle}
+                    onChange={(e) => setSlideTitle(e.target.value)}
+                    placeholder="QUANTUM SYSTEMS: NEW FRONTIERS"
+                    className="w-full bg-darker-surface border border-white/5 rounded px-4 py-3 text-sm focus:outline-none focus:border-magenta-vibrant/50 text-white transition-colors"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-bold text-slate-500 tracking-widest uppercase">Pre-Heading Title</label>
+                  <input 
+                    required
+                    value={slideSubtitle}
+                    onChange={(e) => setSlideSubtitle(e.target.value)}
+                    placeholder="FEATURED INTELLIGENCE"
+                    className="w-full bg-darker-surface border border-white/5 rounded px-4 py-3 text-sm focus:outline-none focus:border-magenta-vibrant/50 text-white transition-colors"
+                  />
+                </div>
+                <div className="md:col-span-2 space-y-2">
+                  <label className="text-[10px] font-bold text-slate-500 tracking-widest uppercase">Supporting Description</label>
+                  <textarea 
+                    required
+                    rows={2}
+                    value={slideDescription}
+                    onChange={(e) => setSlideDescription(e.target.value)}
+                    placeholder="Tracking the emergence of complex behaviors..."
+                    className="w-full bg-darker-surface border border-white/5 rounded px-4 py-3 text-sm focus:outline-none focus:border-magenta-vibrant/50 text-white transition-colors resize-none"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-bold text-slate-500 tracking-widest uppercase">Uplink Background URL</label>
+                  <input 
+                    required
+                    value={slideImage}
+                    onChange={(e) => setSlideImage(e.target.value)}
+                    placeholder="https://images.unsplash.com/..."
+                    className="w-full bg-darker-surface border border-white/5 rounded px-4 py-3 text-sm focus:outline-none focus:border-magenta-vibrant/50 text-white transition-colors"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-bold text-slate-500 tracking-widest uppercase">Target Transmission ID (Optional)</label>
+                  <input 
+                    value={slidePostId}
+                    onChange={(e) => setSlidePostId(e.target.value)}
+                    placeholder="1"
+                    className="w-full bg-darker-surface border border-white/5 rounded px-4 py-3 text-sm focus:outline-none focus:border-magenta-vibrant/50 text-white transition-colors"
+                  />
+                </div>
+                
+                <button 
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="md:col-span-2 bg-magenta-vibrant text-black font-black py-4 rounded-xs text-[10px] tracking-[0.3em] uppercase hover:opacity-90 transition-all flex items-center justify-center gap-2"
+                >
+                  <Plus size={16} />
+                  ACTIVATE SLIDE
+                </button>
+              </form>
+            </div>
+
+            {/* List Slides */}
+            <div className="space-y-4">
+              <h3 className="text-xs font-bold text-slate-500 tracking-[0.3em] uppercase flex items-center gap-3">
+                <Layers size={14} /> Active Neural Slides
+              </h3>
+              
+              <div className="space-y-4">
+                {slides.map((slide, idx) => (
+                  <div key={slide.id} className="bg-dark-surface/40 border border-white/5 p-4 rounded flex items-center gap-6 group hover:border-magenta-vibrant/20 transition-all">
+                    <div className="w-40 h-24 shrink-0 rounded overflow-hidden border border-white/10">
+                      <img src={slide.image} alt="" className="w-full h-full object-cover grayscale opacity-50 group-hover:grayscale-0 group-hover:opacity-100 transition-all" />
+                    </div>
+                    
+                    <div className="flex-grow">
+                      <p className="text-[9px] text-magenta-vibrant font-bold tracking-widest uppercase mb-1">{slide.subtitle}</p>
+                      <h4 className="text-white font-bold text-sm mb-1 uppercase italic">{slide.title}</h4>
+                      <p className="text-slate-500 text-[10px] line-clamp-1">{slide.description}</p>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <div className="flex flex-col gap-1">
+                        <button onClick={() => moveSlide(idx, 'up')} disabled={idx === 0} className="p-1.5 hover:text-cyan-vibrant disabled:opacity-20"><ArrowUp size={14}/></button>
+                        <button onClick={() => moveSlide(idx, 'down')} disabled={idx === slides.length - 1} className="p-1.5 hover:text-cyan-vibrant disabled:opacity-20"><ArrowDown size={14}/></button>
+                      </div>
+                      <button 
+                        onClick={() => deleteSlide(slide.id)}
+                        className="p-3 text-slate-600 hover:text-red-500 transition-colors"
+                      >
+                        <Trash2 size={18} />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+
+                {slides.length === 0 && (
+                  <div className="py-20 text-center border border-dashed border-white/5 rounded">
+                    <p className="text-slate-600 text-[10px] font-bold tracking-widest uppercase">No active slides in orbit</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
+

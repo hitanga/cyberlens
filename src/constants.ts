@@ -9,6 +9,16 @@ export interface Comment {
   uid?: string;
 }
 
+export interface CarouselSlide {
+  id: string;
+  title: string;
+  subtitle: string;
+  description: string;
+  image: string;
+  postId?: string;
+  order: number;
+}
+
 export interface BlogPost {
   id: string;
   category: string;

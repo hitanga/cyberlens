@@ -40,6 +40,20 @@
         "timestamp": { "type": "string", "description": "Time of subscription" }
       },
       "required": ["email", "timestamp"]
+    },
+    "CarouselSlide": {
+      "title": "Carousel Slide",
+      "description": "Featured intelligence slides for the hero carousel.",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string", "description": "Large heading text" },
+        "subtitle": { "type": "string", "description": "Pre-heading text" },
+        "description": { "type": "string", "description": "Supporting paragraph text" },
+        "image": { "type": "string", "description": "URL of the background image" },
+        "postId": { "type": "string", "description": "ID of the post to link to (optional)" },
+        "order": { "type": "number", "description": "Display sequence" }
+      },
+      "required": ["title", "subtitle", "description", "image", "order"]
     }
   },
   "firestore": {
@@ -54,6 +68,10 @@
     "/subscribers/{subscriberId}": {
       "schema": "Subscriber",
       "description": "Collection of all node subscribers"
+    },
+    "/carousel_slides/{slideId}": {
+      "schema": "CarouselSlide",
+      "description": "Featured slides for the main carousel"
     }
   }
 }

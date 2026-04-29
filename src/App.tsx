@@ -1,12 +1,13 @@
 import { Search, ChevronRight, Bookmark, LayoutGrid, List, ArrowLeft, ArrowRight, Rss, Globe, Mail, Heart, Share2, MoreVertical, Send, User, LogOut, Shield } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useState, useEffect, ChangeEvent, FormEvent } from 'react';
-import { BLOG_POSTS as STATIC_POSTS, BlogPost, Comment } from './constants';
+import { BLOG_POSTS as STATIC_POSTS, BlogPost, Comment, CarouselSlide } from './constants';
 import { db, auth, signInWithGoogle } from './lib/firebase';
 import { collection, query, orderBy, onSnapshot, doc, getDoc, addDoc, serverTimestamp } from 'firebase/firestore';
 import { onAuthStateChanged, signOut, User as FirebaseUser } from 'firebase/auth';
 import AdminDashboard from './components/AdminDashboard';
 import BlogPostDetail from './components/BlogPostDetail';
+import HeroCarousel from './components/HeroCarousel';
 import { formatLikes } from './lib/utils';
 
 export default function App() {
@@ -17,6 +18,7 @@ export default function App() {
   const [layoutMode, setLayoutMode] = useState<"grid" | "list">("list");
   const [user, setUser] = useState<FirebaseUser | null>(null);
   const [posts, setPosts] = useState<BlogPost[]>(STATIC_POSTS);
+  const [carouselSlides, setCarouselSlides] = useState<CarouselSlide[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [likedPostIds, setLikedPostIds] = useState<string[]>([]);
   const [subscribeEmail, setSubscribeEmail] = useState("");
@@ -77,10 +79,56 @@ export default function App() {
     return () => unsubscribe();
   }, []);
 
+  // Carousel Data Listener
+  useEffect(() => {
+    const q = query(collection(db, 'carousel_slides'), orderBy('order', 'asc'));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const slides = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })) as CarouselSlide[];
+      setCarouselSlides(slides);
+    }, (error) => {
+      console.error("Carousel error:", error);
+    });
+    return () => unsubscribe();
+  }, []);
+
   const filteredPosts = posts.filter(post => 
     post.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
     post.category.toLowerCase().includes(searchQuery.toLowerCase())
   );
+
+  const defaultSlides: CarouselSlide[] = [
+    {
+      id: "default-1",
+      title: "QUANTUM SYSTEMS: NEW FRONTIERS",
+      subtitle: "FEATURED INTELLIGENCE",
+      description: "Tracking the emergence of complex behaviors in distributed architectural clusters and the ethical singularity of synthetic thought.",
+      image: "https://images.unsplash.com/photo-1550751827-4bd374c3f58b?auto=format&fit=crop&q=80&w=2000",
+      postId: "1",
+      order: 0
+    },
+    {
+      id: "default-2",
+      title: "NEURAL LINKS: HUMAN_UPGRADE",
+      subtitle: "BIOTECH ADVISORY",
+      description: "Direct neural integration is no longer a choice—it's an evolution. Explore the latest in sub-dermal interface protocols.",
+      image: "https://images.unsplash.com/photo-1507413245164-6160d8298b31?auto=format&fit=crop&q=80&w=2000",
+      postId: "2",
+      order: 1
+    },
+    {
+      id: "default-3",
+      title: "CYBERSECURITY: GRID_BREACHED",
+      subtitle: "URGENT ALERT",
+      description: "Sector 7 reports multiple packet shunting attempts. Secure your encryption keys and activate tertiary relay shields immediately.",
+      image: "https://images.unsplash.com/photo-1563986768609-322da13575f3?auto=format&fit=crop&q=80&w=2000",
+      order: 2
+    }
+  ];
+
+  const finalSlides = carouselSlides.length > 0 ? carouselSlides : defaultSlides;
 
   const selectedPost = posts.find(p => p.id === selectedPostId);
 
@@ -289,46 +337,11 @@ export default function App() {
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
               >
-                {/* Hero Section */}
-                <section id="hero-section" className="relative h-[80vh] min-h-[600px] flex items-center overflow-hidden -mt-24">
-                  <div className="absolute inset-0 z-0">
-                    <img 
-                      src="https://images.unsplash.com/photo-1550751827-4bd374c3f58b?auto=format&fit=crop&q=80&w=2000" 
-                      alt="Futuristic Tech"
-                      className="w-full h-full object-cover opacity-30"
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-darker-surface via-darker-surface/60 to-transparent" />
-                    <div className="absolute inset-0 bg-gradient-to-r from-darker-surface via-transparent to-transparent" />
-                  </div>
-
-                  <div className="max-w-7xl mx-auto px-6 relative z-10 w-full">
-                    <motion.div
-                      initial={{ opacity: 0, y: 30 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ duration: 0.8 }}
-                      className="max-w-3xl"
-                    >
-                      <span className="text-cyan-vibrant font-semibold text-xs tracking-[0.3em] uppercase mb-6 block">
-                        FEATURED INTELLIGENCE
-                      </span>
-                      <h2 className="text-5xl md:text-7xl font-extrabold tracking-tight text-white leading-[1] mb-8 uppercase">
-                        QUANTUM SYSTEMS: <br />
-                        <span className="text-slate-600">NEW FRONTIERS</span>
-                      </h2>
-                      <p className="text-slate-400 text-lg mb-10 leading-relaxed max-w-xl">
-                        Tracking the emergence of complex behaviors in distributed architectural clusters and the ethical singularity of synthetic thought.
-                      </p>
-                      
-                      <button 
-                        onClick={() => setSelectedPostId("1")}
-                        className="btn-cyan flex items-center gap-3 transition-all transform hover:scale-105"
-                      >
-                        READ MORE
-                        <ChevronRight size={18} />
-                      </button>
-                    </motion.div>
-                  </div>
-                </section>
+                {/* Hero Carousel Section */}
+                <HeroCarousel 
+                  slides={finalSlides} 
+                  onReadMore={(postId) => setSelectedPostId(postId)} 
+                />
 
                 {/* Blog List Section */}
                 <section id="latest-transmissions" className="max-w-7xl mx-auto px-6 py-20 pb-32">
