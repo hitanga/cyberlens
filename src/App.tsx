@@ -97,11 +97,16 @@ export default function App() {
     try {
       await signInWithGoogle();
     } catch (error: any) {
-      if (error.code === 'auth/cancelled-popup-request') {
+      if (error.code === 'auth/cancelled-popup-request' || error.code === 'auth/popup-closed-by-user') {
         console.warn("Authentication popup was closed or cancelled.");
+      } else if (error.code === 'auth/unauthorized-domain') {
+        alert("Domain Not Authorized: Please add this URL to the 'Authorized domains' list in your Firebase Console -> Authentication -> Settings.");
+        console.error("Login failed: domain not authorized.");
       } else {
         console.error("Login failed:", error);
       }
+      setIsLoggingIn(false);
+    } finally {
       setIsLoggingIn(false);
     }
   };
