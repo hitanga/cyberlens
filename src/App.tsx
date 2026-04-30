@@ -25,6 +25,8 @@ export default function App() {
   const [isSubscribing, setIsSubscribing] = useState(false);
   const [subscribeStatus, setSubscribeStatus] = useState<"idle" | "success" | "error" | "already">("idle");
   const [showSubscribeInput, setShowSubscribeInput] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const postsPerPage = 9;
 
   const [isLoggingIn, setIsLoggingIn] = useState(false);
 
@@ -139,8 +141,9 @@ export default function App() {
 
   const handleSearchChange = (e: ChangeEvent<HTMLInputElement>) => {
     setSearchQuery(e.target.value);
+    setCurrentPage(1);
     if (selectedPostId) setSelectedPostId(null);
-    if (currentView !== "HOME") setCurrentView("HOME");
+    if (currentView !== "HOME" && currentView !== "BLOGS") setCurrentView("HOME");
   };
 
   const handleLogin = async () => {
@@ -209,6 +212,57 @@ export default function App() {
   const navigateTo = (view: "HOME" | "PRIVACY" | "TERMS" | "CONTACT" | "RSS" | "ADMIN" | "ABOUT" | "BLOGS") => {
     setCurrentView(view);
     setSelectedPostId(null);
+    setCurrentPage(1);
+  };
+
+  const totalPages = Math.ceil(filteredPosts.length / postsPerPage);
+  const currentPosts = filteredPosts.slice(
+    (currentPage - 1) * postsPerPage,
+    currentPage * postsPerPage
+  );
+
+  const Pagination = () => {
+    if (totalPages <= 1) return null;
+    
+    return (
+      <div className="flex items-center justify-center gap-4 mt-20 pt-10 border-t border-white/5">
+        <button
+          disabled={currentPage === 1}
+          onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+          className={`p-3 bg-dark-surface border border-white/5 rounded-xs transition-all ${
+            currentPage === 1 ? 'opacity-30 cursor-not-allowed' : 'text-slate-400 hover:text-cyan-vibrant hover:border-cyan-vibrant/30'
+          }`}
+        >
+          <ArrowLeft size={18} />
+        </button>
+        
+        <div className="flex items-center gap-2">
+          {Array.from({ length: totalPages }).map((_, i) => (
+            <button
+              key={i}
+              onClick={() => setCurrentPage(i + 1)}
+              className={`w-10 h-10 text-[10px] font-black transition-all border ${
+                currentPage === i + 1 
+                  ? 'bg-cyan-vibrant text-black border-cyan-vibrant shadow-[0_0_15px_rgba(0,229,255,0.3)]' 
+                  : 'bg-dark-surface text-slate-500 border-white/5 hover:border-white/20 hover:text-white'
+              }`}
+            >
+              {(i + 1).toString().padStart(2, '0')}
+            </button>
+          ))}
+        </div>
+
+        <button
+          disabled={currentPage === totalPages}
+          onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+          className={`p-3 bg-dark-surface border border-white/5 rounded-xs transition-all ${
+            currentPage === totalPages ? 'opacity-30 cursor-not-allowed' : 'text-slate-400 hover:text-cyan-vibrant hover:border-cyan-vibrant/30'
+          }`}
+        >
+          <ArrowRight size={18} />
+        </button>
+      </div>
+    );
   };
 
   return (
@@ -382,8 +436,8 @@ export default function App() {
                   </div>
 
                   <div className={layoutMode === "grid" ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8" : "grid grid-cols-1 gap-10"}>
-                    {filteredPosts.length > 0 ? (
-                      filteredPosts.map((post, index) => (
+                    {currentPosts.length > 0 ? (
+                      currentPosts.map((post, index) => (
                         <PostCard 
                           key={post.id} 
                           post={post} 
@@ -405,6 +459,8 @@ export default function App() {
                       </div>
                     )}
                   </div>
+
+                  <Pagination />
                 </section>
               </motion.div>
             ) : (
@@ -481,7 +537,7 @@ export default function App() {
                 </div>
 
                 <div className={layoutMode === "grid" ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8" : "grid grid-cols-1 gap-10"}>
-                  {filteredPosts.map((post, index) => (
+                  {currentPosts.map((post, index) => (
                     <PostCard 
                       key={post.id} 
                       post={post} 
@@ -492,6 +548,8 @@ export default function App() {
                     />
                   ))}
                 </div>
+
+                <Pagination />
               </motion.div>
             ) : (
               <motion.div
