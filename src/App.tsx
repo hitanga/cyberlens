@@ -1,7 +1,7 @@
-import { Search, ChevronRight, LayoutGrid, List, ArrowLeft, ArrowRight, Rss, Globe, Mail, Heart, Share2, MoreVertical, Send, User, LogOut, Shield } from 'lucide-react';
+import { Search, ChevronRight, ChevronDown, LayoutGrid, List, ArrowLeft, ArrowRight, Rss, Globe, Mail, Heart, Share2, MoreVertical, Send, User, LogOut, Shield, Menu, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useState, useEffect, ChangeEvent, FormEvent } from 'react';
-import { BLOG_POSTS as STATIC_POSTS, BlogPost, Comment, CarouselSlide } from './constants';
+import { BLOG_POSTS as STATIC_POSTS, BlogPost, Comment, CarouselSlide, NAV_LINKS } from './constants';
 import { db, auth, signInWithGoogle } from './lib/firebase';
 import { collection, query, orderBy, onSnapshot, doc, getDoc, addDoc, serverTimestamp } from 'firebase/firestore';
 import { onAuthStateChanged, signOut, User as FirebaseUser } from 'firebase/auth';
@@ -19,6 +19,9 @@ export default function App() {
   const [user, setUser] = useState<FirebaseUser | null>(null);
   const [posts, setPosts] = useState<BlogPost[]>(STATIC_POSTS);
   const [carouselSlides, setCarouselSlides] = useState<CarouselSlide[]>([]);
+  const [selectedCategory, setSelectedCategory] = useState<string>("ALL ARTICLES");
+  const [showDropdown, setShowDropdown] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [likedPostIds, setLikedPostIds] = useState<string[]>([]);
   const [subscribeEmail, setSubscribeEmail] = useState("");
@@ -96,36 +99,42 @@ export default function App() {
     return () => unsubscribe();
   }, []);
 
-  const filteredPosts = posts.filter(post => 
-    post.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    post.category.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredPosts = posts.filter(post => {
+    const matchesSearch = post.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                         post.category.toLowerCase().includes(searchQuery.toLowerCase());
+    
+    if (selectedCategory === "ALL ARTICLES") return matchesSearch;
+    
+    // Normalize "AI" search to "Artificial Intelligence"
+    const catToMatch = selectedCategory === "AI" ? "ARTIFICIAL INTELLIGENCE" : selectedCategory;
+    return matchesSearch && post.category.toUpperCase() === catToMatch.toUpperCase();
+  });
 
   const defaultSlides: CarouselSlide[] = [
     {
       id: "default-1",
-      title: "QUANTUM SYSTEMS: NEW FRONTIERS",
-      subtitle: "FEATURED INTELLIGENCE",
-      description: "Tracking the emergence of complex behaviors in distributed architectural clusters and the ethical singularity of synthetic thought.",
-      image: "https://images.unsplash.com/photo-1550751827-4bd374c3f58b?auto=format&fit=crop&q=80&w=2000",
+      title: "REACT 19: THE NEW ERA",
+      subtitle: "FEATURED TRANSMISSION",
+      description: "Exploring the experimental concurrent features and the shift towards server-centric architecture in modern web development.",
+      image: "https://images.unsplash.com/photo-1633356122544-f134324a6cee?auto=format&fit=crop&q=80&w=2000",
       postId: "1",
       order: 0
     },
     {
       id: "default-2",
-      title: "NEURAL LINKS: HUMAN_UPGRADE",
-      subtitle: "BIOTECH ADVISORY",
-      description: "Direct neural integration is no longer a choice—it's an evolution. Explore the latest in sub-dermal interface protocols.",
-      image: "https://images.unsplash.com/photo-1507413245164-6160d8298b31?auto=format&fit=crop&q=80&w=2000",
+      title: "NEXT JS: APPS BEYOND EDGE",
+      subtitle: "ARCHITECTURE ADVISORY",
+      description: "How partial prerendering and streaming are redefining the boundaries of user experience and performance.",
+      image: "https://images.unsplash.com/photo-1618477247222-acbdb0e159b3?auto=format&fit=crop&q=80&w=2000",
       postId: "2",
       order: 1
     },
     {
       id: "default-3",
-      title: "CYBERSECURITY: GRID_BREACHED",
-      subtitle: "URGENT ALERT",
-      description: "Sector 7 reports multiple packet shunting attempts. Secure your encryption keys and activate tertiary relay shields immediately.",
-      image: "https://images.unsplash.com/photo-1563986768609-322da13575f3?auto=format&fit=crop&q=80&w=2000",
+      title: "AI INTEGRATION: NEURAL LOGIC",
+      subtitle: "INTELLIGENCE ALERT",
+      description: "Large language models are moving from prompts to autonomous agents. Secure your vector databases and integrate tertiary logic checks.",
+      image: "https://images.unsplash.com/photo-1677442136019-21780ecad995?auto=format&fit=crop&q=80&w=2000",
       order: 2
     }
   ];
@@ -212,7 +221,18 @@ export default function App() {
   const navigateTo = (view: "HOME" | "PRIVACY" | "TERMS" | "CONTACT" | "RSS" | "ADMIN" | "ABOUT" | "BLOGS") => {
     setCurrentView(view);
     setSelectedPostId(null);
+    setSelectedCategory("ALL ARTICLES");
     setCurrentPage(1);
+    setIsMobileMenuOpen(false);
+  };
+
+  const selectCategory = (cat: string) => {
+    setSelectedCategory(cat);
+    setCurrentView("HOME");
+    setSelectedPostId(null);
+    setCurrentPage(1);
+    setSearchQuery("");
+    setIsMobileMenuOpen(false);
   };
 
   const totalPages = Math.ceil(filteredPosts.length / postsPerPage);
@@ -269,34 +289,85 @@ export default function App() {
     <div className="min-h-screen flex flex-col font-sans bg-darker-surface text-slate-200 overflow-x-hidden">
       {/* Header */}
       <header className="fixed top-0 left-0 right-0 z-50 bg-darker-surface/80 backdrop-blur-md border-b border-border-glow">
-        <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between gap-8">
-          <div className="flex items-center gap-12 text-nowrap">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 h-20 flex items-center justify-between gap-4 md:gap-8">
+          <div className="flex items-center gap-4 xl:gap-12 text-nowrap">
+            <button 
+              className="xl:hidden p-2 text-slate-400 hover:text-cyan-vibrant transition-colors"
+              onClick={() => setIsMobileMenuOpen(true)}
+            >
+              <Menu size={20} />
+            </button>
+
             <h1 
               onClick={() => navigateTo('HOME')} 
-              className="text-2xl font-bold tracking-tight flex items-center cursor-pointer group"
+              className="text-lg sm:text-2xl font-bold tracking-tight flex items-center cursor-pointer group"
             >
               <span className="text-cyan-vibrant group-hover:text-white transition-colors uppercase">CYBER_LENS</span>
             </h1>
 
-            <nav className="hidden md:flex items-center gap-8 ml-4">
+            <nav className="hidden xl:flex items-center gap-8 ml-4">
+              <div 
+                className="relative"
+                onMouseEnter={() => setShowDropdown(true)}
+                onMouseLeave={() => setShowDropdown(false)}
+              >
+                <button 
+                  onClick={() => selectCategory("ALL ARTICLES")}
+                  className={`flex items-center gap-2 text-[10px] font-black tracking-[0.2em] uppercase transition-all whitespace-nowrap ${selectedCategory === "ALL ARTICLES" ? 'text-cyan-vibrant shadow-[0_4px_10px_-4px_rgba(0,229,255,0.4)]' : 'text-slate-500 hover:text-white'}`}
+                >
+                  ALL ARTICLES
+                  <ChevronDown size={14} className={`transition-transform duration-300 ${showDropdown ? 'rotate-180 text-cyan-vibrant' : ''}`} />
+                </button>
+
+                <AnimatePresence>
+                  {showDropdown && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                      transition={{ duration: 0.2 }}
+                      className="absolute top-full left-0 mt-2 py-3 bg-darker-surface border border-white/10 rounded-sm shadow-[0_20px_50px_rgba(0,0,0,0.5)] min-w-[220px] z-[60] flex flex-col"
+                    >
+                      {NAV_LINKS.filter(link => link !== "ALL ARTICLES").map(link => (
+                        <button
+                          key={link}
+                          onClick={() => {
+                            selectCategory(link);
+                            setShowDropdown(false);
+                          }}
+                          className={`w-full text-left px-6 py-3.5 text-[10px] font-black tracking-[0.2em] uppercase transition-all border-l-2 relative overflow-hidden group ${
+                            selectedCategory === link 
+                              ? 'text-cyan-vibrant border-cyan-vibrant bg-cyan-vibrant/5' 
+                              : 'text-slate-400 border-transparent hover:text-white hover:bg-white/5 hover:border-white/10'
+                          }`}
+                        >
+                          <span className="relative z-10">{link}</span>
+                          {selectedCategory === link && (
+                            <motion.div 
+                              layoutId="activeCategory"
+                              className="absolute inset-0 bg-cyan-vibrant/5 z-0"
+                            />
+                          )}
+                        </button>
+                      ))}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+
+              <div className="w-px h-4 bg-white/10 mx-2" />
               <button 
                 onClick={() => navigateTo('ABOUT')}
                 className={`text-[10px] font-bold tracking-[0.2em] uppercase transition-all ${currentView === 'ABOUT' ? 'text-cyan-vibrant' : 'text-slate-500 hover:text-white'}`}
               >
                 ABOUT
               </button>
-              <button 
-                onClick={() => navigateTo('BLOGS')}
-                className={`text-[10px] font-bold tracking-[0.2em] uppercase transition-all ${currentView === 'BLOGS' ? 'text-cyan-vibrant' : 'text-slate-500 hover:text-white'}`}
-              >
-                BLOGS
-              </button>
             </nav>
           </div>
 
-          <div className="flex items-center gap-6 flex-1 justify-end max-w-2xl">
+          <div className="flex items-center gap-3 md:gap-6 flex-1 justify-end max-w-2xl">
             <div 
-              className={`relative hidden sm:flex items-center gap-3 bg-dark-surface px-4 py-2 rounded-sm border transition-all duration-300 ${
+              className={`relative hidden lg:flex items-center gap-3 bg-dark-surface px-4 py-2 rounded-sm border transition-all duration-300 ${
                 searchFocused ? "border-cyan-vibrant ring-1 ring-cyan-vibrant/20 w-full" : "border-white/5 w-64"
               }`}
             >
@@ -312,7 +383,7 @@ export default function App() {
               />
             </div>
 
-            <div className="flex items-center gap-4 whitespace-nowrap">
+            <div className="flex items-center gap-2 md:gap-4 whitespace-nowrap">
               {isAdmin && (
                 <button 
                   onClick={() => navigateTo('ADMIN')}
@@ -342,13 +413,14 @@ export default function App() {
                   id="login-btn" 
                   onClick={handleLogin}
                   disabled={isLoggingIn}
-                  className={`text-xs font-semibold transition-colors flex items-center gap-2 ${isLoggingIn ? 'text-slate-600 opacity-50 cursor-not-allowed' : 'hover:text-cyan-vibrant uppercase'}`}
+                  className={`text-[10px] md:text-xs font-black tracking-widest transition-colors flex items-center gap-2 ${isLoggingIn ? 'text-slate-600 opacity-50 cursor-not-allowed' : 'text-slate-400 hover:text-white uppercase'}`}
                 >
-                  <User size={14} className={isLoggingIn ? "animate-pulse" : ""} />
-                  {isLoggingIn ? 'CONNECTING...' : 'LOGIN'}
+                  <User size={14} className={`hidden sm:block ${isLoggingIn ? "animate-pulse" : ""}`} />
+                  {isLoggingIn ? 'CONNECTING...' : 'INIT_AUTH'}
                 </button>
               )}
               
+            <div className="hidden xl:block">
               <div className="relative">
                 {subscribeStatus === "success" ? (
                   <span className="text-[10px] font-bold text-cyan-vibrant uppercase animate-pulse">ACCESS_GRANTED</span>
@@ -392,8 +464,150 @@ export default function App() {
                 )}
               </div>
             </div>
+            </div>
           </div>
         </div>
+
+        {/* Mobile Menu Overlay */}
+        <AnimatePresence>
+          {isMobileMenuOpen && (
+            <>
+              <motion.div 
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="fixed inset-0 bg-black/80 backdrop-blur-md z-[100] xl:hidden"
+              />
+              <motion.div 
+                initial={{ x: "-100%" }}
+                animate={{ x: 0 }}
+                exit={{ x: "-100%" }}
+                transition={{ type: "spring", damping: 30, stiffness: 300 }}
+                className="fixed top-0 left-0 h-screen w-[300px] bg-[#05070A] border-r border-cyan-vibrant/20 z-[101] xl:hidden shadow-[20px_0_50px_rgba(0,0,0,0.8)] flex flex-col"
+              >
+                <div className="p-6 border-b border-white/5 flex items-center justify-between bg-[#080B10]">
+                  <div className="flex items-center gap-3">
+                    <div className="w-2 h-2 bg-cyan-vibrant rounded-full animate-pulse shadow-[0_0_8px_#00E5FF]" />
+                    <h2 className="text-lg font-black text-cyan-vibrant tracking-tighter uppercase font-mono">CYBER_MENU</h2>
+                  </div>
+                  <button 
+                    onClick={() => setIsMobileMenuOpen(false)}
+                    className="p-2 text-slate-400 hover:text-white transition-colors bg-white/5 rounded-sm border border-white/10"
+                  >
+                    <X size={20} />
+                  </button>
+                </div>
+
+                <div className="flex-1 overflow-y-auto p-6 space-y-10 custom-scrollbar bg-[#05070A]">
+                  <div>
+                    <div className="flex items-center gap-3 mb-6 px-2">
+                      <div className="h-px flex-1 bg-white/5" />
+                      <h3 className="text-[10px] text-slate-400 font-black tracking-[0.4em] uppercase">Archives</h3>
+                      <div className="h-px flex-1 bg-white/5" />
+                    </div>
+                    <div className="space-y-2">
+                      {NAV_LINKS.map(link => (
+                        <button
+                          key={link}
+                          onClick={() => selectCategory(link)}
+                          className={`w-full text-left px-5 py-4 text-xs font-black tracking-[0.2em] uppercase transition-all rounded-sm border-l-2 ${
+                            selectedCategory === link 
+                              ? 'text-cyan-vibrant border-cyan-vibrant bg-cyan-vibrant/10' 
+                              : 'text-slate-300 border-transparent hover:bg-white/5 hover:text-white hover:border-white/20'
+                          }`}
+                        >
+                          {link}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="flex items-center gap-3 mb-6 px-2">
+                      <div className="h-px flex-1 bg-white/5" />
+                      <h3 className="text-[10px] text-slate-400 font-black tracking-[0.4em] uppercase">Terminal</h3>
+                      <div className="h-px flex-1 bg-white/5" />
+                    </div>
+                    <div className="space-y-2">
+                      <button
+                        onClick={() => navigateTo('ABOUT')}
+                        className={`w-full text-left px-5 py-4 text-xs font-black tracking-[0.2em] uppercase transition-all rounded-sm border-l-2 ${
+                          currentView === 'ABOUT' 
+                            ? 'text-cyan-vibrant border-cyan-vibrant bg-cyan-vibrant/10' 
+                            : 'text-slate-300 border-transparent hover:bg-white/5 hover:text-white hover:border-white/20'
+                        }`}
+                      >
+                        ABOUT_US
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="pt-4">
+                    <div className="relative group">
+                      <div className="absolute inset-0 bg-cyan-vibrant/5 blur-md group-focus-within:opacity-100 opacity-0 transition-opacity" />
+                      <div className="relative flex items-center gap-3 bg-black/40 border border-white/5 px-4 py-4 rounded-sm group-focus-within:border-cyan-vibrant/30 transition-all">
+                        <Search size={14} className="text-slate-500 group-focus-within:text-cyan-vibrant transition-colors" />
+                        <input
+                          type="text"
+                          placeholder="SCAN_DATA..."
+                          value={searchQuery}
+                          onChange={handleSearchChange}
+                          className="bg-transparent border-none outline-none text-xs w-full text-white placeholder:text-slate-700 font-bold focus:ring-0 uppercase tracking-tighter"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="p-6 border-t border-white/5 bg-[#080B10] space-y-6">
+                  {!showSubscribeInput && (
+                    <button 
+                      onClick={() => {
+                        setShowSubscribeInput(true);
+                        setIsMobileMenuOpen(false);
+                      }}
+                      className="w-full py-4 bg-cyan-vibrant text-black text-[11px] font-black tracking-[0.3em] uppercase transition-all hover:bg-white shadow-[0_4px_20px_rgba(0,229,255,0.2)] active:scale-[0.98]"
+                    >
+                      SUBSCRIBE_NOW
+                    </button>
+                  )}
+                  
+                  <div className="space-y-4">
+                    {user ? (
+                      <div className="flex items-center gap-4 px-5 py-4 bg-white/5 border border-white/5 rounded-sm">
+                        <div className="w-10 h-10 bg-cyan-vibrant/10 border border-cyan-vibrant/20 rounded flex items-center justify-center text-cyan-vibrant">
+                          <User size={20} />
+                        </div>
+                        <div className="flex-1 overflow-hidden">
+                          <p className="text-[9px] text-slate-500 font-black tracking-[0.2em] uppercase mb-0.5">Operator_Active</p>
+                          <p className="text-[11px] text-white font-mono truncate">{user.email}</p>
+                        </div>
+                        <button 
+                          onClick={handleLogout}
+                          className="p-2 text-slate-500 hover:text-red-500 transition-colors"
+                        >
+                          <LogOut size={16} />
+                        </button>
+                      </div>
+                    ) : (
+                      <button 
+                        onClick={() => {
+                          handleLogin();
+                          setIsMobileMenuOpen(false);
+                        }}
+                        className="w-full py-4 border border-white/10 text-white text-[11px] font-black tracking-[0.3em] uppercase hover:bg-white/5 transition-all flex items-center justify-center gap-3"
+                      >
+                        <User size={14} className="text-cyan-vibrant" />
+                        USER_LOGIN
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </motion.div>
+            </>
+          )}
+        </AnimatePresence>
       </header>
 
       <main className="flex-grow pt-24">
@@ -448,13 +662,20 @@ export default function App() {
                         />
                       ))
                     ) : (
-                      <div className="text-center py-20 border border-dashed border-white/10 rounded-lg">
-                        <p className="text-slate-500 font-bold tracking-widest uppercase mb-4">No transmissions found matching your criteria</p>
+                      <div className="col-span-full py-32 text-center border border-dashed border-white/5 rounded-sm bg-dark-surface/10">
+                        <div className="mb-6 inline-flex p-4 rounded-full bg-cyan-vibrant/5 text-cyan-vibrant animate-pulse">
+                          <Rss size={32} />
+                        </div>
+                        <h4 className="text-xl font-bold text-white uppercase tracking-tighter mb-2">Transmission Pending</h4>
+                        <p className="text-slate-500 text-xs font-bold tracking-widest uppercase max-w-md mx-auto leading-relaxed">
+                          The neural archive for <span className="text-cyan-vibrant">{selectedCategory}</span> is currently being forged. <br/>
+                          Blog will be coming soon.
+                        </p>
                         <button 
-                          onClick={() => setSearchQuery("")}
-                          className="text-cyan-vibrant text-xs font-bold hover:underline"
+                          onClick={() => selectCategory("ALL ARTICLES")}
+                          className="mt-8 text-[10px] font-black text-cyan-vibrant hover:text-white tracking-[0.3em] uppercase transition-all"
                         >
-                          CLEAR SEARCH
+                          Return to Global Archives
                         </button>
                       </div>
                     )}

@@ -37,9 +37,9 @@ export interface BlogPost {
 export const BLOG_POSTS: BlogPost[] = [
   {
     id: "1",
-    category: "QUANTUM INTELLIGENCE",
+    category: "REACT JS",
     categoryColor: "text-cyan-vibrant",
-    title: "Neural Networks: The Ghost in the Silicon Shell",
+    title: "Neural Networks in React: The Future of UI",
     subtitle: "Exploring the emergence of complex behaviors in distributed architectural clusters and the ethical singularity of synthetic thought.",
     excerpt: "In the late 2040s, the threshold between algorithmic decision-making and genuine cognitive emergence became a blurred line of neon light.",
     content: `
@@ -79,10 +79,10 @@ export const BLOG_POSTS: BlogPost[] = [
   },
   {
     id: "2",
-    category: "HARDWARE",
-    categoryColor: "text-magenta-vibrant",
-    title: "Silicon Beyond Boundaries",
-    subtitle: "The 2nm revolution and the death of traditional physics in semiconductor design.",
+    category: "NEXT JS",
+    categoryColor: "text-white",
+    title: "Next.js Beyond Boundaries",
+    subtitle: "The 2nm revolution in server-side rendering and local edge performance.",
     excerpt: "New 2nm manufacturing processes are pushing the physical limits of Moore's Law. What comes next for high-performance computing architectures?",
     content: "<p>The era of architectural stagnation is over...</p>",
     date: "OCT 22, 2024",
@@ -93,4 +93,12 @@ export const BLOG_POSTS: BlogPost[] = [
   }
 ];
 
-export const NAV_LINKS = ["ARTICLES", "INTELLIGENCE", "ARCHIVE", "NEXUS"];
+export const CATEGORIES = [
+  { name: "REACT JS", color: "text-cyan-vibrant" },
+  { name: "NEXT JS", color: "text-white" },
+  { name: "ANGULAR JS", color: "text-magenta-vibrant" },
+  { name: "VUE JS", color: "text-emerald-500" },
+  { name: "ARTIFICIAL INTELLIGENCE", color: "text-amber-500" }
+];
+
+export const NAV_LINKS = ["ALL ARTICLES", "REACT JS", "NEXT JS", "ANGULAR JS", "VUE JS", "AI"];

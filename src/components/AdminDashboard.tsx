@@ -1,12 +1,60 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { ArrowLeft, Save, Image as ImageIcon, Type, Code, Eye, Terminal, Layers, Plus, Trash2, ArrowUp, ArrowDown, Edit3, X, List, Bold, Italic, List as ListIcon, ListOrdered, Quote, Heading1, Heading2, Heading3 } from 'lucide-react';
+import { ArrowLeft, Save, Image as ImageIcon, Type, Code, Eye, Terminal, Layers, Plus, Trash2, ArrowUp, ArrowDown, Edit3, X, List, Bold, Italic, List as ListIcon, ListOrdered, Quote, Heading1, Heading2, Heading3, Palette, Type as TypeIcon } from 'lucide-react';
 import { useEditor, EditorContent } from '@tiptap/react';
+import { Extension } from '@tiptap/core';
 import StarterKit from '@tiptap/starter-kit';
 import Placeholder from '@tiptap/extension-placeholder';
+import { Color } from '@tiptap/extension-color';
+import { TextStyle } from '@tiptap/extension-text-style';
 import { db, auth } from '../lib/firebase';
 import { collection, addDoc, serverTimestamp, query, orderBy, onSnapshot, deleteDoc, doc, updateDoc } from 'firebase/firestore';
-import { CarouselSlide, BlogPost } from '../constants';
+import { CarouselSlide, BlogPost, CATEGORIES } from '../constants';
+
+const FontSize = Extension.create({
+  name: 'fontSize',
+  addOptions() {
+    return {
+      types: ['textStyle'],
+    };
+  },
+  addGlobalAttributes() {
+    return [
+      {
+        types: this.options.types,
+        attributes: {
+          fontSize: {
+            default: null,
+            parseHTML: element => element.style.fontSize.replace(/['"]+/g, ''),
+            renderHTML: attributes => {
+              if (!attributes.fontSize) {
+                return {};
+              }
+              return {
+                style: `font-size: ${attributes.fontSize}`,
+              };
+            },
+          },
+        },
+      },
+    ];
+  },
+  addCommands() {
+    return {
+      setFontSize: (fontSize: string) => ({ chain }: { chain: any }) => {
+        return chain()
+          .setMark('textStyle', { fontSize })
+          .run();
+      },
+      unsetFontSize: () => ({ chain }: { chain: any }) => {
+        return chain()
+          .setMark('textStyle', { fontSize: null })
+          .removeEmptyTextStyle()
+          .run();
+      },
+    } as any;
+  },
+});
 
 interface AdminDashboardProps {
   onBack: () => void;
@@ -98,6 +146,43 @@ const MenuBar = ({ editor }: { editor: any }) => {
       >
         <Quote size={16} />
       </button>
+      <div className="w-px h-6 bg-white/5 mx-1 self-center" />
+      <div className="flex items-center gap-2 px-2 hover:bg-white/5 rounded transition-colors group" title="Font Size">
+        <TypeIcon size={14} className="text-slate-500 group-hover:text-cyan-vibrant transition-colors" />
+        <select
+          onChange={e => {
+            const val = e.target.value;
+            if (val === 'default') {
+              editor.chain().focus().unsetFontSize().run();
+            } else {
+              editor.chain().focus().setFontSize(val).run();
+            }
+          }}
+          value={editor.getAttributes('textStyle').fontSize || 'default'}
+          className="bg-transparent text-[10px] text-slate-400 font-bold border-none focus:ring-0 cursor-pointer uppercase appearance-none"
+        >
+          <option value="default">AUTO</option>
+          <option value="10px">10px</option>
+          <option value="12px">12px</option>
+          <option value="14px">14px</option>
+          <option value="16px">16px</option>
+          <option value="18px">18px</option>
+          <option value="20px">20px</option>
+          <option value="24px">24px</option>
+          <option value="32px">32px</option>
+          <option value="48px">48px</option>
+        </select>
+      </div>
+      <div className="w-px h-6 bg-white/5 mx-1 self-center" />
+      <div className="flex items-center gap-2 px-2 hover:bg-white/5 rounded transition-colors group" title="Text Color">
+        <Palette size={14} className="text-slate-500 group-hover:text-cyan-vibrant transition-colors" />
+        <input
+          type="color"
+          onInput={event => editor.chain().focus().setColor((event.target as HTMLInputElement).value).run()}
+          value={editor.getAttributes('textStyle').color || '#ffffff'}
+          className="w-4 h-4 p-0 bg-transparent border-none cursor-pointer transition-transform"
+        />
+      </div>
     </div>
   );
 };
@@ -155,7 +240,7 @@ export default function AdminDashboard({ onBack }: AdminDashboardProps) {
   const [editingPostId, setEditingPostId] = useState<string | null>(null);
   const [title, setTitle] = useState('');
   const [subtitle, setSubtitle] = useState('');
-  const [category, setCategory] = useState('QUANTUM INTELLIGENCE');
+  const [category, setCategory] = useState(CATEGORIES[0].name);
   const [image, setImage] = useState('');
   const [content, setContent] = useState('');
   const [isHtmlMode, setIsHtmlMode] = useState(false);
@@ -175,6 +260,9 @@ export default function AdminDashboard({ onBack }: AdminDashboardProps) {
   const editor = useEditor({
     extensions: [
       StarterKit,
+      TextStyle,
+      Color,
+      FontSize,
       Placeholder.configure({
         placeholder: 'Forge the future here...',
       }),
@@ -231,11 +319,12 @@ export default function AdminDashboard({ onBack }: AdminDashboardProps) {
 
     try {
       const cleanContent = stripHtml(content);
+      const selectedCat = CATEGORIES.find(c => c.name === category);
       const postData = {
         title: title.trim(),
         subtitle: subtitle.trim(),
         category,
-        categoryColor: category === 'HARDWARE' ? 'text-magenta-vibrant' : 'text-cyan-vibrant',
+        categoryColor: selectedCat ? selectedCat.color : 'text-cyan-vibrant',
         excerpt: cleanContent.substring(0, 180).trim() + (cleanContent.length > 180 ? '...' : ''),
         content,
         image,
@@ -273,7 +362,7 @@ export default function AdminDashboard({ onBack }: AdminDashboardProps) {
     setContent('');
     if (editor) editor.commands.setContent('');
     setEditingPostId(null);
-    setCategory('QUANTUM INTELLIGENCE');
+    setCategory(CATEGORIES[0].name);
   };
 
   const handleEditPost = (post: BlogPost) => {
@@ -476,11 +565,9 @@ export default function AdminDashboard({ onBack }: AdminDashboardProps) {
                       onChange={(e) => setCategory(e.target.value)}
                       className="w-full bg-darker-surface border border-white/5 rounded px-4 py-3 text-sm focus:outline-none focus:border-cyan-vibrant/50 text-white transition-colors appearance-none"
                     >
-                      <option value="QUANTUM INTELLIGENCE">QUANTUM INTELLIGENCE</option>
-                      <option value="REACT JS">REACT JS</option>
-                      <option value="HARDWARE">HARDWARE</option>
-                      <option value="CYBERSECURITY">CYBERSECURITY</option>
-                      <option value="NEURAL LINKS">NEURAL LINKS</option>
+                      {CATEGORIES.map(cat => (
+                        <option key={cat.name} value={cat.name}>{cat.name}</option>
+                      ))}
                     </select>
                   </div>
                 </div>
