@@ -121,11 +121,14 @@ export default function AdminDashboard({ onBack }: AdminDashboardProps) {
 
   const handleDeletePost = async (id: string) => {
     if (!confirm("Confirm permanent destruction of this transmission log?")) return;
+    setStatus({ type: 'idle', message: '' });
     try {
       await deleteDoc(doc(db, 'posts', id));
       if (editingPostId === id) resetPostForm();
+      setStatus({ type: 'success', message: 'TRANSMISSION VAPORIZED' });
     } catch (error) {
-      console.error(error);
+      console.error("Deletion failed:", error);
+      setStatus({ type: 'error', message: 'DELETION ABORTED: INSUFFICIENT CLEARANCE' });
     }
   };
 

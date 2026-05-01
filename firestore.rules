@@ -11,7 +11,10 @@ service cloud.firestore {
 
     function isAdmin() {
       // Hardcoded admin for this project context
-      return isSignedIn() && request.auth.token.email == 'gopalzone2025@gmail.com' && request.auth.token.email_verified == true;
+      // Allowing both verified email and checking against the known admin email
+      return isSignedIn() && 
+        request.auth.token.email == 'gopalzone2025@gmail.com' && 
+        (request.auth.token.email_verified == true || request.auth.token.firebase.sign_in_provider == 'google.com');
     }
 
     function isValidId(id) {
