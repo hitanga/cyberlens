@@ -108,7 +108,7 @@ export default function HeroCarousel({ slides, onReadMore }: HeroCarouselProps) 
                 {slide.subtitle}
               </motion.span>
               
-              <h2 className="text-5xl md:text-8xl font-black tracking-tighter text-white leading-[0.9] mb-8 uppercase italic">
+              <h2 className="text-5xl md:text-8xl font-black tracking-tighter text-white leading-[0.9] mb-8 uppercase italic break-words">
                 {slide.title.split(':').map((part, i) => (
                   <React.Fragment key={i}>
                     {i > 0 && <br />}
@@ -123,7 +123,7 @@ export default function HeroCarousel({ slides, onReadMore }: HeroCarouselProps) 
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 transition={{ delay: 0.5 }}
-                className="text-slate-400 text-base md:text-xl mb-12 leading-relaxed max-w-2xl font-medium border-l-2 border-white/10 pl-6"
+                className="text-slate-400 text-base md:text-xl mb-12 leading-relaxed max-w-2xl font-medium border-l-2 border-white/10 pl-6 break-words"
               >
                 {slide.description}
               </motion.p>

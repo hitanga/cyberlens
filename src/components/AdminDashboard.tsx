@@ -1,11 +1,11 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { ArrowLeft, Save, Image as ImageIcon, Type, Code, Eye, Terminal, Layers, Plus, Trash2, ArrowUp, ArrowDown, Edit3, X, List } from 'lucide-react';
-import ReactQuill from 'react-quill-new';
-import 'react-quill-new/dist/quill.snow.css';
+import { ArrowLeft, Save, Image as ImageIcon, Type, Code, Eye, Terminal, Layers, Plus, Trash2, ArrowUp, ArrowDown, Edit3, X, List, Bold, Italic, List as ListIcon, ListOrdered, Quote, Heading1, Heading2, Heading3 } from 'lucide-react';
+import { useEditor, EditorContent } from '@tiptap/react';
+import StarterKit from '@tiptap/starter-kit';
+import Placeholder from '@tiptap/extension-placeholder';
 import { db, auth } from '../lib/firebase';
-import { collection, addDoc, serverTimestamp, query, orderBy, onSnapshot, deleteDoc, doc, updateDoc, getDoc } from 'firebase/firestore';
-import DOMPurify from 'dompurify';
+import { collection, addDoc, serverTimestamp, query, orderBy, onSnapshot, deleteDoc, doc, updateDoc } from 'firebase/firestore';
 import { CarouselSlide, BlogPost } from '../constants';
 
 interface AdminDashboardProps {
@@ -13,6 +13,85 @@ interface AdminDashboardProps {
 }
 
 type AdminTab = 'POSTS' | 'CAROUSEL';
+
+const MenuBar = ({ editor }: { editor: any }) => {
+  if (!editor) {
+    return null;
+  }
+
+  return (
+    <div className="flex flex-wrap gap-1 p-2 border-b border-white/5 bg-darker-surface">
+      <button
+        type="button"
+        onClick={() => editor.chain().focus().toggleBold().run()}
+        disabled={!editor.can().chain().focus().toggleBold().run()}
+        className={`p-2 rounded hover:bg-white/5 transition-colors ${editor.isActive('bold') ? 'text-cyan-vibrant' : 'text-slate-400'}`}
+        title="Bold"
+      >
+        <Bold size={16} />
+      </button>
+      <button
+        type="button"
+        onClick={() => editor.chain().focus().toggleItalic().run()}
+        disabled={!editor.can().chain().focus().toggleItalic().run()}
+        className={`p-2 rounded hover:bg-white/5 transition-colors ${editor.isActive('italic') ? 'text-cyan-vibrant' : 'text-slate-400'}`}
+        title="Italic"
+      >
+        <Italic size={16} />
+      </button>
+      <div className="w-px h-6 bg-white/5 mx-1 self-center" />
+      <button
+        type="button"
+        onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
+        className={`p-2 rounded hover:bg-white/5 transition-colors ${editor.isActive('heading', { level: 1 }) ? 'text-cyan-vibrant' : 'text-slate-400'}`}
+        title="H1"
+      >
+        <Heading1 size={16} />
+      </button>
+      <button
+        type="button"
+        onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
+        className={`p-2 rounded hover:bg-white/5 transition-colors ${editor.isActive('heading', { level: 2 }) ? 'text-cyan-vibrant' : 'text-slate-400'}`}
+        title="H2"
+      >
+        <Heading2 size={16} />
+      </button>
+      <button
+        type="button"
+        onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}
+        className={`p-2 rounded hover:bg-white/5 transition-colors ${editor.isActive('heading', { level: 3 }) ? 'text-cyan-vibrant' : 'text-slate-400'}`}
+        title="H3"
+      >
+        <Heading3 size={16} />
+      </button>
+      <div className="w-px h-6 bg-white/5 mx-1 self-center" />
+      <button
+        type="button"
+        onClick={() => editor.chain().focus().toggleBulletList().run()}
+        className={`p-2 rounded hover:bg-white/5 transition-colors ${editor.isActive('bulletList') ? 'text-cyan-vibrant' : 'text-slate-400'}`}
+        title="Bullet List"
+      >
+        <ListIcon size={16} />
+      </button>
+      <button
+        type="button"
+        onClick={() => editor.chain().focus().toggleOrderedList().run()}
+        className={`p-2 rounded hover:bg-white/5 transition-colors ${editor.isActive('orderedList') ? 'text-cyan-vibrant' : 'text-slate-400'}`}
+        title="Ordered List"
+      >
+        <ListOrdered size={16} />
+      </button>
+      <button
+        type="button"
+        onClick={() => editor.chain().focus().toggleBlockquote().run()}
+        className={`p-2 rounded hover:bg-white/5 transition-colors ${editor.isActive('blockquote') ? 'text-cyan-vibrant' : 'text-slate-400'}`}
+        title="Quote"
+      >
+        <Quote size={16} />
+      </button>
+    </div>
+  );
+};
 
 export default function AdminDashboard({ onBack }: AdminDashboardProps) {
   const [activeTab, setActiveTab] = useState<AdminTab>('POSTS');
@@ -37,8 +116,32 @@ export default function AdminDashboard({ onBack }: AdminDashboardProps) {
   const [slideImage, setSlideImage] = useState('');
   const [slidePostId, setSlidePostId] = useState('');
   
-  const quillRef = useRef<ReactQuill>(null);
   const formRef = useRef<HTMLDivElement>(null);
+
+  const editor = useEditor({
+    extensions: [
+      StarterKit,
+      Placeholder.configure({
+        placeholder: 'Forge the future here...',
+      }),
+    ],
+    content: '',
+    onUpdate: ({ editor }) => {
+      setContent(editor.getHTML());
+    },
+    editorProps: {
+      attributes: {
+        class: 'prose prose-invert prose-sm focus:outline-none max-w-none p-6 min-h-[300px]',
+      },
+    },
+  });
+
+  // Sync editor content when switching posts or modes
+  useEffect(() => {
+    if (editor && content !== editor.getHTML()) {
+      editor.commands.setContent(content);
+    }
+  }, [editingPostId]);
 
   // Fetch Slides & Posts
   useEffect(() => {
@@ -57,6 +160,12 @@ export default function AdminDashboard({ onBack }: AdminDashboardProps) {
     }
   }, [activeTab]);
 
+  const stripHtml = (html: string) => {
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    const text = doc.body.textContent || "";
+    return text.replace(/[\s\u00A0]+/g, ' ').trim();
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!auth.currentUser) return;
@@ -65,16 +174,17 @@ export default function AdminDashboard({ onBack }: AdminDashboardProps) {
     setStatus({ type: null, message: '' });
 
     try {
+      const cleanContent = stripHtml(content);
       const postData = {
-        title,
-        subtitle,
+        title: title.trim(),
+        subtitle: subtitle.trim(),
         category,
         categoryColor: category === 'HARDWARE' ? 'text-magenta-vibrant' : 'text-cyan-vibrant',
-        excerpt: DOMPurify.sanitize(content, { ALLOWED_TAGS: [] }).substring(0, 160) + '...',
+        excerpt: cleanContent.substring(0, 180).trim() + (cleanContent.length > 180 ? '...' : ''),
         content,
         image,
         date: new Date().toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' }).toUpperCase(),
-        readTime: `${Math.ceil(content.split(' ').length / 200)} MIN READ`,
+        readTime: `${Math.max(1, Math.ceil(cleanContent.split(' ').length / 200))} MIN READ`,
         updatedAt: serverTimestamp(),
       };
 
@@ -105,6 +215,7 @@ export default function AdminDashboard({ onBack }: AdminDashboardProps) {
     setSubtitle('');
     setImage('');
     setContent('');
+    if (editor) editor.commands.setContent('');
     setEditingPostId(null);
     setCategory('QUANTUM INTELLIGENCE');
   };
@@ -116,12 +227,13 @@ export default function AdminDashboard({ onBack }: AdminDashboardProps) {
     setCategory(post.category);
     setImage(post.image);
     setContent(post.content);
+    if (editor) editor.commands.setContent(post.content);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const handleDeletePost = async (id: string) => {
     if (!confirm("Confirm permanent destruction of this transmission log?")) return;
-    setStatus({ type: 'idle', message: '' });
+    setStatus({ type: null, message: '' });
     try {
       await deleteDoc(doc(db, 'posts', id));
       if (editingPostId === id) resetPostForm();
@@ -182,16 +294,6 @@ export default function AdminDashboard({ onBack }: AdminDashboardProps) {
     }
   };
 
-  const modules = {
-    toolbar: [
-      [{ 'header': [1, 2, 3, false] }],
-      ['bold', 'italic', 'underline', 'strike', 'blockquote'],
-      [{ 'list': 'ordered' }, { 'list': 'bullet' }],
-      ['link', 'image'],
-      ['clean']
-    ],
-  };
-
   return (
     <div className="max-w-5xl mx-auto py-12 px-6">
       <header className="flex flex-col md:flex-row md:items-center justify-between gap-8 mb-12">
@@ -235,7 +337,6 @@ export default function AdminDashboard({ onBack }: AdminDashboardProps) {
             className="space-y-16"
           >
             <div ref={formRef} className="space-y-8 bg-dark-surface p-8 rounded-sm border border-white/5 relative overflow-hidden">
-              {/* Active Edit Indicator */}
               {editingPostId && (
                 <div className="absolute top-0 left-0 w-1 h-full bg-cyan-vibrant shadow-[0_0_10px_rgba(0,229,255,0.5)]" />
               )}
@@ -345,19 +446,17 @@ export default function AdminDashboard({ onBack }: AdminDashboardProps) {
                     {isHtmlMode ? (
                       <textarea 
                         value={content}
-                        onChange={(e) => setContent(e.target.value)}
+                        onChange={(e) => {
+                          setContent(e.target.value);
+                          if (editor) editor.commands.setContent(e.target.value);
+                        }}
                         className="w-full h-[400px] bg-darker-surface p-6 font-mono text-xs text-cyan-vibrant/80 focus:outline-none resize-none leading-relaxed border-none ring-0"
                         spellCheck={false}
                       />
                     ) : (
-                      <div className="quill-container h-[400px]">
-                        <ReactQuill 
-                          theme="snow"
-                          value={content}
-                          onChange={setContent}
-                          modules={modules}
-                          className="h-[356px] text-slate-200 border-none"
-                        />
+                      <div className="tiptap-container h-[400px] flex flex-col overflow-y-auto">
+                        <MenuBar editor={editor} />
+                        <EditorContent editor={editor} />
                       </div>
                     )}
                   </div>
@@ -398,7 +497,7 @@ export default function AdminDashboard({ onBack }: AdminDashboardProps) {
                         <span className={`text-[9px] font-black tracking-widest uppercase ${post.categoryColor}`}>{post.category}</span>
                         <span className="text-slate-700 text-[9px] font-bold">{post.date}</span>
                       </div>
-                      <h4 className="text-white font-bold text-sm uppercase tracking-tight line-clamp-1 group-hover:text-cyan-vibrant transition-colors">{post.title}</h4>
+                      <h4 className="text-white font-bold text-sm uppercase tracking-tight line-clamp-1 group-hover:text-cyan-vibrant transition-colors break-words">{post.title}</h4>
                     </div>
 
                     <div className="flex items-center gap-2">
@@ -506,7 +605,6 @@ export default function AdminDashboard({ onBack }: AdminDashboardProps) {
               </form>
             </div>
 
-            {/* List Slides */}
             <div className="space-y-4">
               <h3 className="text-xs font-bold text-slate-500 tracking-[0.3em] uppercase flex items-center gap-3">
                 <Layers size={14} /> Active Neural Slides
@@ -553,4 +651,3 @@ export default function AdminDashboard({ onBack }: AdminDashboardProps) {
     </div>
   );
 }
-

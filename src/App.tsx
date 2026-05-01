@@ -660,7 +660,21 @@ export default function App() {
   );
 }
 
+const cleanText = (text: string) => {
+  if (!text) return "";
+  return text
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/[\s\u00A0]+/g, ' ')
+    .trim();
+};
+
 function PostCard({ post, delay, onClick, layoutMode, isLiked }: { post: BlogPost; delay: number; onClick: () => void; key?: string | number; layoutMode: "grid" | "list"; isLiked: boolean }) {
+  const cleanedExcerpt = cleanText(post.excerpt);
+
   if (layoutMode === "grid") {
     return (
       <motion.article
@@ -676,13 +690,13 @@ function PostCard({ post, delay, onClick, layoutMode, isLiked }: { post: BlogPos
           <div className="absolute inset-0 bg-cyan-vibrant/5 opacity-0 group-hover:opacity-100 transition-opacity" />
         </div>
 
-        <div className="flex flex-col flex-grow p-6">
+        <div className="flex flex-col flex-grow p-6 min-w-0">
           <div className="flex items-center justify-between mb-4">
             <span className={`text-[10px] font-bold tracking-widest uppercase ${post.categoryColor}`}>{post.category}</span>
             <span className="text-[10px] font-semibold text-slate-600 uppercase tracking-widest">{post.date}</span>
           </div>
-          <h3 className="text-xl font-bold tracking-tight text-white mb-4 group-hover:text-cyan-vibrant transition-colors duration-300 uppercase leading-snug line-clamp-2">{post.title}</h3>
-          <p className="text-slate-500 text-xs leading-relaxed mb-6 line-clamp-2">{post.excerpt}</p>
+          <h3 className="text-xl font-bold tracking-tight text-white mb-4 group-hover:text-cyan-vibrant transition-colors duration-300 uppercase leading-snug line-clamp-2 break-words text-ellipsis overflow-hidden">{post.title}</h3>
+          <p className="text-slate-500 text-xs leading-relaxed mb-6 line-clamp-2 break-words">{cleanedExcerpt}</p>
           <div className="mt-auto flex items-center justify-between">
             <div className="flex items-center gap-4">
               <button className="flex items-center gap-2 text-[10px] font-extrabold tracking-widest text-cyan-vibrant hover:text-white transition-all group/link uppercase">
@@ -714,13 +728,13 @@ function PostCard({ post, delay, onClick, layoutMode, isLiked }: { post: BlogPos
         <div className="absolute inset-0 bg-cyan-vibrant/5 opacity-0 group-hover:opacity-100 transition-opacity" />
       </div>
 
-      <div className="flex flex-col flex-grow py-2">
+      <div className="flex flex-col flex-grow py-2 min-w-0">
         <div className="flex items-center justify-between mb-6">
           <span className={`text-[10px] font-bold tracking-widest uppercase px-2 py-1 bg-white/5 rounded-xs ${post.categoryColor}`}>{post.category}</span>
           <span className="text-[10px] font-semibold text-slate-600 uppercase tracking-widest">{post.date}</span>
         </div>
-        <h3 className="text-3xl font-bold tracking-tight text-white mb-6 group-hover:text-cyan-vibrant transition-colors duration-300 uppercase leading-snug">{post.title}</h3>
-        <p className="text-slate-500 text-base leading-relaxed mb-10 line-clamp-2">{post.excerpt}</p>
+        <h3 className="text-2xl lg:text-3xl font-bold tracking-tight text-white mb-6 group-hover:text-cyan-vibrant transition-colors duration-300 uppercase leading-snug break-words line-clamp-3">{post.title}</h3>
+        <p className="text-slate-500 text-base leading-relaxed mb-10 line-clamp-2 break-words">{cleanedExcerpt}</p>
           <div className="mt-auto flex items-center justify-between">
             <div className="flex items-center gap-6">
               <button className="flex items-center gap-4 text-[11px] font-extrabold tracking-widest text-cyan-vibrant hover:text-white transition-all group/link uppercase">

@@ -22,12 +22,27 @@ interface BlogPostDetailProps {
   onLike: () => void;
 }
 
+const cleanText = (text: string) => {
+  if (!text) return "";
+  return text
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/[\s\u00A0]+/g, ' ')
+    .trim();
+};
+
 export default function BlogPostDetail({ post, onBack, isLiked, onLike }: BlogPostDetailProps) {
   const [comments, setComments] = useState<Comment[]>([]);
   const [newComment, setNewComment] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLiking, setIsLiking] = useState(false);
   const [commentError, setCommentError] = useState<string | null>(null);
+
+  const cleanedTitle = cleanText(post.title);
+  const cleanedSubtitle = cleanText(post.subtitle);
 
   const handleLike = async () => {
     if (!auth.currentUser) {
@@ -164,12 +179,12 @@ export default function BlogPostDetail({ post, onBack, isLiked, onLike }: BlogPo
           <div className="h-[1px] w-8 bg-cyan-vibrant" />
         </div>
         
-        <h1 className="text-4xl md:text-6xl font-extrabold tracking-tight text-white mb-8 leading-[1.1] uppercase drop-shadow-[0_0_15px_rgba(0,229,255,0.4)]">
-          {post.title}
+        <h1 className="text-4xl md:text-6xl font-extrabold tracking-tight text-white mb-8 leading-[1.1] uppercase drop-shadow-[0_0_15px_rgba(0,229,255,0.4)] break-words">
+          {cleanedTitle}
         </h1>
         
-        <p className="text-slate-400 text-lg md:text-xl max-w-2xl mx-auto leading-relaxed">
-          {post.subtitle}
+        <p className="text-slate-400 text-lg md:text-xl max-w-2xl mx-auto leading-relaxed break-words">
+          {cleanedSubtitle}
         </p>
       </div>
 
@@ -185,7 +200,7 @@ export default function BlogPostDetail({ post, onBack, isLiked, onLike }: BlogPo
 
       {/* Content */}
       <div 
-        className="prose prose-invert prose-lg max-w-none mb-20 text-slate-300 leading-loose prose-headings:text-white prose-headings:font-bold prose-headings:tracking-tight prose-strong:text-magenta-vibrant prose-em:text-cyan-vibrant"
+        className="prose prose-invert prose-lg max-w-none mb-20 text-slate-300 leading-relaxed prose-headings:text-white prose-headings:font-bold prose-headings:tracking-tight prose-strong:text-magenta-vibrant prose-em:text-cyan-vibrant break-words overflow-x-hidden w-full"
         dangerouslySetInnerHTML={{ __html: post.content }}
       />
 
@@ -295,7 +310,7 @@ export default function BlogPostDetail({ post, onBack, isLiked, onLike }: BlogPo
                   </div>
                   <button className="text-slate-700 hover:text-white"><MoreVertical size={16} /></button>
                 </div>
-                <p className="text-slate-400 text-sm leading-relaxed font-normal pl-14">
+                <p className="text-slate-400 text-sm leading-relaxed font-normal pl-14 break-words">
                   {comment.content}
                 </p>
               </motion.div>
