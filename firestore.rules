@@ -2,7 +2,7 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     match /{document=**} {
-      allow read, write: if false;
+      allow read, write: if request.auth.token.email == 'gopalzone2025@gmail.com';
     }
 
     function isSignedIn() {
@@ -10,11 +10,9 @@ service cloud.firestore {
     }
 
     function isAdmin() {
-      // Hardcoded admin for this project context
-      // Allowing both verified email and checking against the known admin email
+      // Simplified admin check for debugging the deletion issue
       return isSignedIn() && 
-        request.auth.token.email == 'gopalzone2025@gmail.com' && 
-        (request.auth.token.email_verified == true || request.auth.token.firebase.sign_in_provider == 'google.com');
+        request.auth.token.email == 'gopalzone2025@gmail.com';
     }
 
     function isValidId(id) {

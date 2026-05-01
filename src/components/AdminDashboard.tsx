@@ -20,7 +20,7 @@ const MenuBar = ({ editor }: { editor: any }) => {
   }
 
   return (
-    <div className="flex flex-wrap gap-1 p-2 border-b border-white/5 bg-darker-surface">
+    <div className="flex flex-wrap gap-1 p-2 border-b border-white/5 bg-darker-surface sticky top-0 z-10">
       <button
         type="button"
         onClick={() => editor.chain().focus().toggleBold().run()}
@@ -38,6 +38,15 @@ const MenuBar = ({ editor }: { editor: any }) => {
         title="Italic"
       >
         <Italic size={16} />
+      </button>
+      <div className="w-px h-6 bg-white/5 mx-1 self-center" />
+      <button
+        type="button"
+        onClick={() => editor.chain().focus().setParagraph().run()}
+        className={`p-2 rounded hover:bg-white/5 transition-colors ${editor.isActive('paragraph') && !editor.isActive('heading') ? 'text-cyan-vibrant' : 'text-slate-400'}`}
+        title="Normal Text"
+      >
+        <Type size={16} />
       </button>
       <div className="w-px h-6 bg-white/5 mx-1 self-center" />
       <button
@@ -93,6 +102,51 @@ const MenuBar = ({ editor }: { editor: any }) => {
   );
 };
 
+enum OperationType {
+  CREATE = 'create',
+  UPDATE = 'update',
+  DELETE = 'delete',
+  LIST = 'list',
+  GET = 'get',
+  WRITE = 'write',
+}
+
+interface FirestoreErrorInfo {
+  error: string;
+  operationType: OperationType;
+  path: string | null;
+  authInfo: {
+    userId?: string | null;
+    email?: string | null;
+    emailVerified?: boolean | null;
+    isAnonymous?: boolean | null;
+    providerInfo?: {
+      providerId?: string | null;
+      email?: string | null;
+    }[];
+  }
+}
+
+const handleFirestoreError = (error: unknown, operationType: OperationType, path: string | null) => {
+  const errInfo: FirestoreErrorInfo = {
+    error: error instanceof Error ? error.message : String(error),
+    authInfo: {
+      userId: auth.currentUser?.uid,
+      email: auth.currentUser?.email,
+      emailVerified: auth.currentUser?.emailVerified,
+      isAnonymous: auth.currentUser?.isAnonymous,
+      providerInfo: auth.currentUser?.providerData?.map(provider => ({
+        providerId: provider.providerId,
+        email: provider.email,
+      })) || []
+    },
+    operationType,
+    path
+  };
+  console.error('[FIRESTORE_ERROR]', JSON.stringify(errInfo, null, 2));
+  return errInfo.error;
+};
+
 export default function AdminDashboard({ onBack }: AdminDashboardProps) {
   const [activeTab, setActiveTab] = useState<AdminTab>('POSTS');
   
@@ -131,15 +185,17 @@ export default function AdminDashboard({ onBack }: AdminDashboardProps) {
     },
     editorProps: {
       attributes: {
-        class: 'prose prose-invert prose-sm focus:outline-none max-w-none p-6 min-h-[300px]',
+        class: 'prose prose-invert prose-sm focus:outline-none max-w-none p-6 min-h-[300px] break-words overflow-x-hidden',
       },
     },
   });
 
   // Sync editor content when switching posts or modes
   useEffect(() => {
-    if (editor && content !== editor.getHTML()) {
+    if (editor && editingPostId && content && editor.getHTML() !== content) {
       editor.commands.setContent(content);
+    } else if (editor && !editingPostId && content === '') {
+      editor.commands.setContent('');
     }
   }, [editingPostId]);
 
@@ -203,8 +259,8 @@ export default function AdminDashboard({ onBack }: AdminDashboardProps) {
       
       resetPostForm();
     } catch (error) {
-      console.error("Error saving transmission: ", error);
-      setStatus({ type: 'error', message: 'FAILED TO SYNC TRANSMISSION' });
+      const errorMsg = handleFirestoreError(error, editingPostId ? OperationType.UPDATE : OperationType.CREATE, editingPostId ? `posts/${editingPostId}` : 'posts');
+      setStatus({ type: 'error', message: `SYNC_FAILED: ${errorMsg}` });
     } finally {
       setIsSubmitting(false);
     }
@@ -231,21 +287,40 @@ export default function AdminDashboard({ onBack }: AdminDashboardProps) {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
+  const [isDeleting, setIsDeleting] = useState<string | null>(null);
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+
   const handleDeletePost = async (id: string) => {
-    if (!confirm("Confirm permanent destruction of this transmission log?")) return;
+    if (!auth.currentUser) {
+      setStatus({ type: 'error', message: 'SESSION_EXPIRED: PLEASE RELOGIN' });
+      return;
+    }
+
+    console.log(`[DEBUG] Attempting to delete transmission: ${id} by user: ${auth.currentUser.email}`);
+    
     setStatus({ type: null, message: '' });
+    setDeleteConfirmId(null);
+    setIsDeleting(id);
+    const path = `posts/${id}`;
+    
     try {
       await deleteDoc(doc(db, 'posts', id));
+      console.log(`[DEBUG] Transmission ${id} vaporized successfully.`);
       if (editingPostId === id) resetPostForm();
       setStatus({ type: 'success', message: 'TRANSMISSION VAPORIZED' });
     } catch (error) {
-      console.error("Deletion failed:", error);
-      setStatus({ type: 'error', message: 'DELETION ABORTED: INSUFFICIENT CLEARANCE' });
+      console.error(`[DEBUG] Error deleting transmission ${id}:`, error);
+      const errorMsg = handleFirestoreError(error, OperationType.DELETE, path);
+      setStatus({ type: 'error', message: `DELETION_FAILED: ${errorMsg}` });
+    } finally {
+      setIsDeleting(null);
     }
   };
 
   const handleAddSlide = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!auth.currentUser) return;
+    
     setIsSubmitting(true);
     try {
       await addDoc(collection(db, 'carousel_slides'), {
@@ -263,19 +338,23 @@ export default function AdminDashboard({ onBack }: AdminDashboardProps) {
       setSlidePostId('');
       setStatus({ type: 'success', message: 'SLIDE ADDED' });
     } catch (error) {
-      console.error(error);
-      setStatus({ type: 'error', message: 'FAILED TO ADD SLIDE' });
+      const errorMsg = handleFirestoreError(error, OperationType.CREATE, 'carousel_slides');
+      setStatus({ type: 'error', message: `SLIDE_ADD_FAILED: ${errorMsg}` });
     } finally {
       setIsSubmitting(false);
     }
   };
 
   const deleteSlide = async (id: string) => {
+    if (!auth.currentUser) return;
     if (!confirm("Confirm deletion of this intelligence slide?")) return;
+    
     try {
       await deleteDoc(doc(db, 'carousel_slides', id));
+      setStatus({ type: 'success', message: 'SLIDE REMOVED' });
     } catch (error) {
-      console.error(error);
+      const errorMsg = handleFirestoreError(error, OperationType.DELETE, `carousel_slides/${id}`);
+      setStatus({ type: 'error', message: `SLIDE_DELETE_FAILED: ${errorMsg}` });
     }
   };
 
@@ -311,21 +390,41 @@ export default function AdminDashboard({ onBack }: AdminDashboardProps) {
           </h2>
         </div>
         
-        <div className="flex bg-dark-surface p-1 rounded border border-white/5 self-start md:self-auto">
-          <button 
-            onClick={() => setActiveTab('POSTS')}
-            className={`px-6 py-2 rounded text-[10px] font-bold tracking-widest uppercase transition-all ${activeTab === 'POSTS' ? 'bg-cyan-vibrant text-black' : 'text-slate-500 hover:text-white'}`}
-          >
-            Transmissions
-          </button>
-          <button 
-            onClick={() => setActiveTab('CAROUSEL')}
-            className={`px-6 py-2 rounded text-[10px] font-bold tracking-widest uppercase transition-all ${activeTab === 'CAROUSEL' ? 'bg-magenta-vibrant text-black' : 'text-slate-500 hover:text-white'}`}
-          >
-            Neural Carousel
-          </button>
+        <div className="flex flex-col items-end">
+          <div className="text-[9px] text-slate-600 font-mono mb-2 uppercase tracking-tighter">
+            Authorized as: <span className="text-cyan-vibrant">{auth.currentUser?.email || 'ANONYMOUS'}</span>
+          </div>
+          <div className="flex bg-dark-surface p-1 rounded border border-white/5 self-start md:self-auto">
+            <button 
+              onClick={() => setActiveTab('POSTS')}
+              className={`px-6 py-2 rounded text-[10px] font-bold tracking-widest uppercase transition-all ${activeTab === 'POSTS' ? 'bg-cyan-vibrant text-black' : 'text-slate-500 hover:text-white'}`}
+            >
+              Transmissions
+            </button>
+            <button 
+              onClick={() => setActiveTab('CAROUSEL')}
+              className={`px-6 py-2 rounded text-[10px] font-bold tracking-widest uppercase transition-all ${activeTab === 'CAROUSEL' ? 'bg-magenta-vibrant text-black' : 'text-slate-500 hover:text-white'}`}
+            >
+              Neural Carousel
+            </button>
+          </div>
         </div>
       </header>
+
+      {status.type && (
+        <motion.div 
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className={`mb-8 p-4 rounded border text-xs font-bold tracking-widest uppercase ${
+            status.type === 'success' ? 'bg-cyan-500/10 border-cyan-500/50 text-cyan-500' : 'bg-red-500/10 border-red-500/50 text-red-500'
+          }`}
+        >
+          <div className="flex items-center justify-between">
+            <span>{status.message}</span>
+            <button onClick={() => setStatus({ type: null, message: '' })} className="hover:text-white"><X size={14} /></button>
+          </div>
+        </motion.div>
+      )}
 
       <AnimatePresence mode="wait">
         {activeTab === 'POSTS' ? (
@@ -356,18 +455,6 @@ export default function AdminDashboard({ onBack }: AdminDashboardProps) {
               </div>
 
               <form onSubmit={handleSubmit} className="space-y-8">
-                {status.type && (
-                  <motion.div 
-                    initial={{ opacity: 0, y: -10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className={`p-4 rounded border text-xs font-bold tracking-widest uppercase ${
-                      status.type === 'success' ? 'bg-cyan-500/10 border-cyan-500/50 text-cyan-500' : 'bg-red-500/10 border-red-500/50 text-red-500'
-                    }`}
-                  >
-                    {status.message}
-                  </motion.div>
-                )}
-
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                   <div className="space-y-2">
                     <label className="text-[10px] font-bold text-slate-500 tracking-widest uppercase flex items-center gap-2">
@@ -454,9 +541,11 @@ export default function AdminDashboard({ onBack }: AdminDashboardProps) {
                         spellCheck={false}
                       />
                     ) : (
-                      <div className="tiptap-container h-[400px] flex flex-col overflow-y-auto">
+                      <div className="tiptap-container h-[400px] flex flex-col">
                         <MenuBar editor={editor} />
-                        <EditorContent editor={editor} />
+                        <div className="flex-grow overflow-y-auto">
+                          <EditorContent editor={editor} />
+                        </div>
                       </div>
                     )}
                   </div>
@@ -508,13 +597,44 @@ export default function AdminDashboard({ onBack }: AdminDashboardProps) {
                       >
                         <Edit3 size={18} />
                       </button>
-                      <button 
-                        onClick={() => handleDeletePost(post.id)}
-                        className="p-3 text-slate-500 hover:text-red-500 hover:bg-red-500/5 rounded transition-all"
-                        title="Delete from Archive"
-                      >
-                        <Trash2 size={18} />
-                      </button>
+                      
+                      <div className="relative">
+                        <button 
+                          onClick={() => setDeleteConfirmId(deleteConfirmId === post.id ? null : post.id)}
+                          disabled={isDeleting === post.id}
+                          className={`p-3 transition-all ${isDeleting === post.id ? 'text-slate-700 animate-pulse' : 'text-slate-500 hover:text-red-500 hover:bg-red-500/5'}`}
+                          title="Delete from Archive"
+                        >
+                          <Trash2 size={18} className={isDeleting === post.id ? 'animate-spin' : ''} />
+                        </button>
+
+                        <AnimatePresence>
+                          {deleteConfirmId === post.id && (
+                            <motion.div 
+                              initial={{ opacity: 0, scale: 0.9, x: 20 }}
+                              animate={{ opacity: 1, scale: 1, x: 0 }}
+                              exit={{ opacity: 0, scale: 0.9, x: 20 }}
+                              className="absolute right-full mr-4 top-1/2 -translate-y-1/2 bg-darker-surface border border-red-500/50 p-2 rounded shadow-2xl flex items-center gap-3 z-50 whitespace-nowrap"
+                            >
+                              <span className="text-[10px] font-bold text-red-500 tracking-widest uppercase pl-2">Confirm?</span>
+                              <div className="flex gap-1">
+                                <button 
+                                  onClick={() => handleDeletePost(post.id)}
+                                  className="bg-red-500 text-white text-[9px] font-black px-3 py-1 rounded-xs hover:bg-red-600 transition-colors uppercase"
+                                >
+                                  Delete
+                                </button>
+                                <button 
+                                  onClick={() => setDeleteConfirmId(null)}
+                                  className="bg-slate-800 text-white text-[9px] font-black px-3 py-1 rounded-xs hover:bg-slate-700 transition-colors uppercase"
+                                >
+                                  Exit
+                                </button>
+                              </div>
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
+                      </div>
                     </div>
                   </div>
                 ))}
